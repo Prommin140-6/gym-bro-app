@@ -17,3 +17,9 @@ Thumbs.db
 # env/secrets
 .env
 .env.*
+
+seed/serviceAccountKey.json
+seed/*.json
+*.key
+*.pem
+serviceAccountKey.json
