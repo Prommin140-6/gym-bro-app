@@ -1,23 +1,30 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RegisterWizardParamList } from "../../navigation/RegisterWizardStack";
+
 import { WizardProgress } from "../../components/WizardProgress";
+import { Screen } from "../../components/ui/Screen";
+import { Card } from "../../components/ui/Card";
+import { TextField } from "../../components/ui/TextField";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
+
 import { useOnboarding } from "../../services/OnboardingContext";
 import { isEmailAlreadyInUse } from "../../services/authChecks";
+import { COLORS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<RegisterWizardParamList, "Step1Account">;
 
 function mapFirebaseError(code?: string) {
   switch (code) {
     case "auth/invalid-email":
-      return "รูปแบบอีเมลไม่ถูกต้อง";
+      return "Invalid email format";
     case "auth/network-request-failed":
-      return "เน็ตมีปัญหา กรุณาลองใหม่";
+      return "Network error. Please try again.";
     case "auth/too-many-requests":
-      return "ลองใหม่ภายหลัง (พยายามหลายครั้งเกินไป)";
+      return "Too many attempts. Please try again later.";
     default:
-      return "ตรวจสอบอีเมลไม่สำเร็จ กรุณาลองใหม่";
+      return "Unable to check email. Please try again.";
   }
 }
 
@@ -29,11 +36,11 @@ export default function Step1Account({ navigation }: Props) {
   const emailTrim = useMemo(() => draft.email.trim(), [draft.email]);
 
   const validateLocal = () => {
-    if (!emailTrim) return "กรุณากรอกอีเมล";
-    if (!emailTrim.includes("@")) return "รูปแบบอีเมลไม่ถูกต้อง";
-    if (!draft.password) return "กรุณากรอกรหัสผ่าน";
-    if (draft.password.length < 6) return "รหัสผ่านต้องอย่างน้อย 6 ตัวอักษร";
-    if (draft.confirmPassword !== draft.password) return "รหัสผ่านไม่ตรงกัน";
+    if (!emailTrim) return "Please enter your email";
+    if (!emailTrim.includes("@")) return "Invalid email format";
+    if (!draft.password) return "Please enter your password";
+    if (draft.password.length < 6) return "Password must be at least 6 characters";
+    if (draft.confirmPassword !== draft.password) return "Passwords do not match";
     return null;
   };
 
@@ -50,7 +57,7 @@ export default function Step1Account({ navigation }: Props) {
     try {
       const used = await isEmailAlreadyInUse(emailTrim);
       if (used) {
-        setError("อีเมลนี้ถูกใช้งานแล้ว");
+        setError("This email is already in use");
         return;
       }
       navigation.navigate("Step2BasicInfo");
@@ -61,60 +68,66 @@ export default function Step1Account({ navigation }: Props) {
     }
   };
 
-  const canNext = !checkingEmail;
-
   return (
-    <View style={{ flex: 1, padding: 16, justifyContent: "center", gap: 10 }}>
-      <WizardProgress step={1} total={6} />
-      <Text style={{ fontSize: 24, fontWeight: "800" }}>Create Account</Text>
+    <Screen>
+      <View style={{ flex: 1, padding: 16, justifyContent: "center", gap: 14 }}>
+        <WizardProgress step={1} total={6} />
 
-      <TextInput
-        placeholder="email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={draft.email}
-        onChangeText={(t) => setDraft((d) => ({ ...d, email: t }))}
-        style={input}
-      />
-      <TextInput
-        placeholder="password"
-        secureTextEntry
-        value={draft.password}
-        onChangeText={(t) => setDraft((d) => ({ ...d, password: t }))}
-        style={input}
-      />
-      <TextInput
-        placeholder="confirm password"
-        secureTextEntry
-        value={draft.confirmPassword}
-        onChangeText={(t) => setDraft((d) => ({ ...d, confirmPassword: t }))}
-        style={input}
-      />
+        <View style={{ gap: 4 }}>
+          <Text style={{ color: COLORS.text, fontSize: 26, fontWeight: "900" }}>
+            Create Account
+          </Text>
+          <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+            Sign up with email and password
+          </Text>
+        </View>
 
-      {error ? <Text style={{ color: "#d00" }}>{error}</Text> : null}
+        <Card style={{ gap: 12 }}>
+          <TextField
+            label="Email"
+            value={draft.email}
+            onChange={(t) => setDraft((d) => ({ ...d, email: t }))}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+          />
 
-      <Pressable onPress={next} style={[btn, !canNext && { opacity: 0.5 }]} disabled={!canNext}>
-        {checkingEmail ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <ActivityIndicator />
-            <Text style={btnText}>Checking...</Text>
-          </View>
-        ) : (
-          <Text style={btnText}>Next</Text>
-        )}
-      </Pressable>
-    </View>
+          <TextField
+            label="Password"
+            value={draft.password}
+            onChange={(t) => setDraft((d) => ({ ...d, password: t }))}
+            placeholder="••••••••"
+            secureTextEntry
+          />
+
+          <TextField
+            label="Confirm password"
+            value={draft.confirmPassword}
+            onChange={(t) => setDraft((d) => ({ ...d, confirmPassword: t }))}
+            placeholder="••••••••"
+            secureTextEntry
+          />
+
+          {error ? (
+            <Text style={{ color: COLORS.danger, fontWeight: "800" }}>{error}</Text>
+          ) : null}
+
+          <PrimaryButton title={checkingEmail ? "Checking..." : "Next"} onPress={next} disabled={checkingEmail} />
+
+          {checkingEmail ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, justifyContent: "center" }}>
+              <ActivityIndicator />
+              <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>Checking email...</Text>
+            </View>
+          ) : null}
+        </Card>
+
+        {/* optional back to login (if you want) */}
+        <Pressable onPress={() => navigation.getParent()?.goBack?.()} hitSlop={10}>
+          <Text style={{ color: COLORS.subtext, textAlign: "center", textDecorationLine: "underline" }}>
+            Back to Login
+          </Text>
+        </Pressable>
+      </View>
+    </Screen>
   );
 }
-
-const input = {
-  borderWidth: 1,
-  borderColor: "#999",
-  borderRadius: 10,
-  paddingHorizontal: 12,
-  paddingVertical: 12,
-  fontSize: 16,
-} as const;
-
-const btn = { backgroundColor: "#111", padding: 14, borderRadius: 12, alignItems: "center" } as const;
-const btnText = { color: "white", fontWeight: "700" } as const;

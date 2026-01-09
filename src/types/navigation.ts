@@ -1,22 +1,28 @@
+// src/types/navigation.ts
 import type { NavigatorScreenParams } from "@react-navigation/native";
-import type { FoodBase } from "./food";
 
 // ---------- Auth Stack ----------
 export type AuthStackParamList = {
+  Welcome: undefined;
   Login: undefined;
-  Register: undefined; // RegisterWizardStack (nested) แต่ไม่ได้รับ params
+  Register: undefined;
 };
 
 // ---------- Dashboard Stack ----------
 export type DashboardStackParamList = {
-  DashboardHome: undefined;
+  Dashboard: undefined;
   NutritionGoals: undefined;
+  EditGoal: {
+    key: "calorieTarget" | "carbTarget" | "proteinTarget" | "fatTarget";
+    title: string;
+    currentValue: number;
+  };
 };
 
 // ---------- Food Stack ----------
 export type FoodStackParamList = {
   FoodList: undefined;
-  FoodDetail: { food: FoodBase };
+  FoodDetail: { food: any };
   AddFood: undefined;
 };
 
@@ -29,7 +35,7 @@ export type MainTabParamList = {
   ProfileTab: undefined;
 };
 
-// ---------- Root (optional) ----------
+// ---------- Root Stack ----------
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   MainTabs: NavigatorScreenParams<MainTabParamList>;

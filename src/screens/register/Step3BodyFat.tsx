@@ -2,16 +2,22 @@ import React, { useState } from "react";
 import { View, Text, Pressable, ScrollView, Image } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RegisterWizardParamList } from "../../navigation/RegisterWizardStack";
+
 import { WizardProgress } from "../../components/WizardProgress";
+import { Screen } from "../../components/ui/Screen";
+import { Card } from "../../components/ui/Card";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
+
 import { useOnboarding } from "../../services/OnboardingContext";
+import { COLORS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<RegisterWizardParamList, "Step3BodyFat">;
 
 type BodyFatOption = {
   key: "bf10" | "bf20" | "bf25" | "bf30" | "bf40plus";
-  label: string;          // แสดงใต้รูป เช่น "10%" หรือ "40%+"
-  value: number;          // ค่าเก็บจริง (เราจะเก็บ 40 สำหรับ 40%+)
-  image: any;             // require(...)
+  label: string;
+  value: number;
+  image: any;
 };
 
 const OPTIONS: BodyFatOption[] = [
@@ -26,79 +32,102 @@ export default function Step3BodyFat({ navigation }: Props) {
   const { draft, setDraft } = useOnboarding();
   const [error, setError] = useState<string | null>(null);
 
-  const next = () => {
-    if (draft.bodyFatPercent == null) return setError("กรุณาเลือก body fat 1 ค่า");
+  const onNext = () => {
+    if (draft.bodyFatPercent == null) {
+      setError("Please select one option");
+      return;
+    }
     setError(null);
     navigation.navigate("Step4ExerciseStyle");
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <WizardProgress step={3} total={6} />
+    <Screen>
+      <View style={{ flex: 1 }}>
+        <WizardProgress step={3} total={6} />
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "800" }}>Body Fat</Text>
-        <Text>เลือก 1 ค่า</Text>
+        <ScrollView
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 24,
+            gap: 14,
+          }}
+        >
+          <View style={{ gap: 4 }}>
+            <Text style={{ color: COLORS.text, fontSize: 26, fontWeight: "900" }}>
+              Body Fat
+            </Text>
+            <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+              Choose the closest match
+            </Text>
+          </View>
 
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-          {OPTIONS.map((o) => {
-            const selected = draft.bodyFatPercent === o.value;
+          <Card style={{ gap: 12 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+              {OPTIONS.map((o) => {
+                const selected = draft.bodyFatPercent === o.value;
 
-            return (
-              <Pressable
-                key={o.key}
-                onPress={() => setDraft((d) => ({ ...d, bodyFatPercent: o.value }))}
-                style={{
-                  width: "48%",
-                  borderWidth: 2,
-                  borderColor: selected ? "#111" : "#ddd",
-                  borderRadius: 14,
-                  padding: 10,
-                  gap: 8,
-                  backgroundColor: "white",
-                }}
-              >
-                <Image
-                  source={o.image}
-                  style={{ width: "100%", height: 140, borderRadius: 12 }}
-                  resizeMode="cover"
-                />
+                return (
+                  <Pressable
+                    key={o.key}
+                    onPress={() => setDraft((d) => ({ ...d, bodyFatPercent: o.value }))}
+                    style={{
+                      width: "48%",
+                      borderWidth: 2,
+                      borderColor: selected ? COLORS.primary : COLORS.border, // ✅ กรอบ primary ตอนเลือก
+                      backgroundColor: COLORS.surface2,
+                      borderRadius: 16,
+                      padding: 10,
+                      gap: 10,
+                    }}
+                  >
+                    <View style={{ borderRadius: 14, overflow: "hidden" }}>
+                      <Image source={o.image} style={{ width: "100%", height: 140 }} resizeMode="cover" />
+                    </View>
 
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={{ fontWeight: "800", fontSize: 16 }}>{o.label}</Text>
-                  {selected ? (
-                    <View
+                    {/* ✅ label ใต้รูป ตรงกลาง */}
+                    <Text
                       style={{
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                        borderRadius: 999,
-                        backgroundColor: "#111",
+                        color: COLORS.text,
+                        fontWeight: "900",
+                        fontSize: 16,
+                        textAlign: "center",
                       }}
                     >
-                      <Text style={{ color: "white", fontWeight: "800", fontSize: 12 }}>Selected</Text>
-                    </View>
-                  ) : null}
-                </View>
+                      {o.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {error ? (
+              <Text style={{ color: COLORS.danger, fontWeight: "800" }}>{error}</Text>
+            ) : null}
+
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Pressable
+                onPress={() => navigation.goBack()}
+                style={{
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  backgroundColor: "transparent",
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: COLORS.text, fontWeight: "900" }}>Back</Text>
               </Pressable>
-            );
-          })}
-        </View>
 
-        {error ? <Text style={{ color: "#d00" }}>{error}</Text> : null}
-
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <Pressable onPress={() => navigation.goBack()} style={[btn, ghost]}>
-            <Text style={[btnText, { color: "#111" }]}>Back</Text>
-          </Pressable>
-          <Pressable onPress={next} style={btn}>
-            <Text style={btnText}>Next</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </View>
+              <View style={{ flex: 1 }}>
+                <PrimaryButton title="Next" onPress={onNext} />
+              </View>
+            </View>
+          </Card>
+        </ScrollView>
+      </View>
+    </Screen>
   );
 }
-
-const btn = { flex: 1, backgroundColor: "#111", padding: 14, borderRadius: 12, alignItems: "center" } as const;
-const ghost = { backgroundColor: "transparent", borderWidth: 1, borderColor: "#111" } as const;
-const btnText = { color: "white", fontWeight: "700" } as const;

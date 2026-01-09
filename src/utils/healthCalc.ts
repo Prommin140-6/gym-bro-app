@@ -70,32 +70,46 @@ export function bmiCategoryThai(bmi: number) {
   return "อ้วนระดับ 2";
 }
 
-export function healthAdviceThai(params: {
+export function healthAdvice(params: {
   bmi: number;
   goal: Goal;
   exerciseStyle: ExerciseStyle;
 }) {
   const { bmi, goal, exerciseStyle } = params;
-  const bmiCat = bmiCategoryThai(bmi);
+
+  const bmiCategory =
+    bmi < 18.5
+      ? "Underweight"
+      : bmi < 23
+      ? "Normal"
+      : bmi < 25
+      ? "Overweight"
+      : bmi < 30
+      ? "Obese (Class I)"
+      : "Obese (Class II)";
 
   const goalText =
     goal === "lose_weight"
-      ? "โฟกัสลดน้ำหนักแบบค่อยเป็นค่อยไป"
+      ? "Focus on gradual fat loss"
       : goal === "gain_weight"
-      ? "โฟกัสเพิ่มน้ำหนักแบบคุณภาพ"
+      ? "Focus on quality weight gain"
       : goal === "maintain_muscle"
-      ? "โฟกัสรักษามวลกล้ามเนื้อ"
-      : "โฟกัสคงน้ำหนัก";
+      ? "Focus on maintaining muscle mass"
+      : "Focus on maintaining your current weight";
 
   const exerciseHint =
     exerciseStyle === "not_exercise"
-      ? "เริ่มจากเดิน 20–30 นาที/วัน 3–4 วัน/สัปดาห์ก่อน แล้วค่อยเพิ่ม"
+      ? "Start with walking 20–30 minutes a day, 3–4 days per week"
       : exerciseStyle === "exercise_1_2_days_week"
-      ? "เพิ่มเป็น 3 วัน/สัปดาห์จะเห็นผลชัดขึ้น"
-      : "รักษาความสม่ำเสมอและพักผ่อนให้พอ";
+      ? "Increasing to 3 days per week will improve results"
+      : "Maintain consistency and get enough rest";
 
-  return `สถานะ BMI: ${bmiCat}\n${goalText}\nคำแนะนำ: ${exerciseHint}\nดื่มน้ำให้พอ นอน 7–8 ชม. และเน้นโปรตีนให้ถึงเป้า`;
+  return `BMI status: ${bmiCategory}
+${goalText}
+Advice: ${exerciseHint}
+Stay hydrated, sleep 7–8 hours, and hit your protein target`;
 }
+
 
 function round1(n: number) {
   return Math.round(n * 10) / 10;

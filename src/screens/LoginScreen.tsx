@@ -1,25 +1,32 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../types/navigation";
+
+import { Screen } from "../components/ui/Screen";
+import { Card } from "../components/ui/Card";
+import { TextField } from "../components/ui/TextField";
+import { PrimaryButton } from "../components/ui/PrimaryButton";
+
 import { useAuth } from "../services/AuthContext";
+import { COLORS } from "../theme/colors";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 
 function mapFirebaseError(code?: string) {
   switch (code) {
     case "auth/invalid-email":
-      return "อีเมลไม่ถูกต้อง";
+      return "Invalid email";
     case "auth/user-not-found":
     case "auth/wrong-password":
     case "auth/invalid-credential":
-      return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
+      return "Incorrect email or password";
     case "auth/too-many-requests":
-      return "ลองใหม่ภายหลัง (พยายามหลายครั้งเกินไป)";
+      return "Too many attempts. Please try again later.";
     case "auth/network-request-failed":
-      return "เน็ตมีปัญหา กรุณาลองใหม่";
+      return "Network error. Please try again.";
     default:
-      return "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่";
+      return "Sign in failed. Please try again.";
   }
 }
 
@@ -36,10 +43,10 @@ export default function LoginScreen({ navigation }: Props) {
   const canSubmit = emailTrim.length > 0 && password.length >= 6 && !submitting;
 
   const validate = () => {
-    if (!emailTrim) return "กรุณากรอกอีเมล";
-    if (!emailTrim.includes("@")) return "รูปแบบอีเมลไม่ถูกต้อง";
-    if (!password) return "กรุณากรอกรหัสผ่าน";
-    if (password.length < 6) return "รหัสผ่านต้องอย่างน้อย 6 ตัวอักษร";
+    if (!emailTrim) return "Please enter your email";
+    if (!emailTrim.includes("@")) return "Invalid email format";
+    if (!password) return "Please enter your password";
+    if (password.length < 6) return "Password must be at least 6 characters";
     return null;
   };
 
@@ -55,7 +62,7 @@ export default function LoginScreen({ navigation }: Props) {
 
     try {
       await login(emailTrim, password);
-      // ✅ ไม่ต้อง navigate เอง RootNavigator จะสลับไป MainTabs ให้
+      // RootNavigator จะสลับไป MainTabs ให้เอง
     } catch (e: any) {
       setErrorText(mapFirebaseError(e?.code));
     } finally {
@@ -64,63 +71,91 @@ export default function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+    <Screen>
+      <View style={{ flex: 1, padding: 16, justifyContent: "center", gap: 14 }}>
+        {/* Header */}
+        <View style={{ gap: 6, marginBottom: 6 }}>
+          <Text style={{ color: COLORS.text, fontSize: 30, fontWeight: "900" }}>
+            Welcome to GymBroApp
+          </Text>
+          <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+            Sign in to continue
+          </Text>
+        </View>
 
-      <TextInput
-        value={email}
-        onChangeText={setEmail}
-        placeholder="email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={styles.input}
-      />
+        {/* Form card */}
+        <Card style={{ gap: 12 }}>
+          <TextField
+            label="Email"
+            value={email}
+            onChange={setEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+          />
 
-      <TextInput
-        value={password}
-        onChangeText={setPassword}
-        placeholder="password"
-        secureTextEntry
-        style={styles.input}
-      />
+          <TextField
+            label="Password"
+            value={password}
+            onChange={setPassword}
+            placeholder="••••••••"
+            secureTextEntry
+          />
 
-      {errorText ? <Text style={styles.error}>{errorText}</Text> : null}
+          {errorText ? (
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: "rgba(255,77,77,0.35)",
+                backgroundColor: "rgba(255,77,77,0.08)",
+                padding: 10,
+                borderRadius: 12,
+              }}
+            >
+              <Text style={{ color: COLORS.danger, fontWeight: "800" }}>
+                {errorText}
+              </Text>
+            </View>
+          ) : null}
 
-      <Pressable
-        onPress={onSubmit}
-        disabled={!canSubmit}
-        style={[styles.button, !canSubmit && styles.buttonDisabled]}
-      >
-        <Text style={styles.buttonText}>{submitting ? "Signing in..." : "Login"}</Text>
-      </Pressable>
+          <PrimaryButton
+            title={submitting ? "Signing in..." : "Login"}
+            onPress={onSubmit}
+            disabled={!canSubmit}
+          />
 
-      <Pressable onPress={() => navigation.navigate("Register")}>
-        <Text style={styles.link}>ไปหน้า Register</Text>
-      </Pressable>
-    </View>
+          {/* Divider */}
+          <View style={{ height: 1, backgroundColor: COLORS.border, opacity: 0.9 }} />
+
+          <Pressable
+            onPress={() => navigation.navigate("Register")}
+            style={styles.linkBtn}
+            hitSlop={10}
+          >
+            <Text style={styles.linkText}>
+              Don&apos;t have an account?{" "}
+              <Text style={{ color: COLORS.primary, fontWeight: "900" }}>
+                Create one
+              </Text>
+            </Text>
+          </Pressable>
+        </Card>
+
+        {/* Small footer */}
+        <Text style={{ color: COLORS.subtext, textAlign: "center", fontWeight: "700" }}>
+          Gym Bro • Nutrition Tracker
+        </Text>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, justifyContent: "center", gap: 12 },
-  title: { fontSize: 28, fontWeight: "800", marginBottom: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#999",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  error: { color: "#d00", marginTop: 4 },
-  button: {
-    backgroundColor: "#111",
-    paddingVertical: 14,
-    borderRadius: 12,
+  linkBtn: {
     alignItems: "center",
-    marginTop: 8,
+    paddingVertical: 6,
   },
-  buttonDisabled: { opacity: 0.4 },
-  buttonText: { color: "white", fontSize: 16, fontWeight: "700" },
-  link: { marginTop: 10, textAlign: "center", textDecorationLine: "underline" },
+  linkText: {
+    color: COLORS.subtext,
+    fontWeight: "800",
+  },
 });

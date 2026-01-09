@@ -1,62 +1,78 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RegisterWizardParamList } from "../../navigation/RegisterWizardStack";
+
 import { WizardProgress } from "../../components/WizardProgress";
+import { Screen } from "../../components/ui/Screen";
+import { Card } from "../../components/ui/Card";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
+
 import { useOnboarding } from "../../services/OnboardingContext";
 import { useAuth } from "../../services/AuthContext";
 import { db } from "../../services/firebase";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+
 import {
   activityMultiplier,
   calcBMR,
   calcBMI,
   calcTDEE,
-  healthAdviceThai,
   recommendedCalories,
+  healthAdvice,
 } from "../../utils/healthCalc";
+import { COLORS } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<RegisterWizardParamList, "Step6Summary">;
 
 function mapFirebaseError(code?: string) {
   switch (code) {
     case "auth/email-already-in-use":
-      return "อีเมลนี้ถูกใช้งานแล้ว";
+      return "Email already in use";
     case "auth/invalid-email":
-      return "อีเมลไม่ถูกต้อง";
+      return "Invalid email";
     case "auth/weak-password":
-      return "รหัสผ่านอ่อนเกินไป (อย่างน้อย 6 ตัวอักษร)";
+      return "Password is too weak";
     case "auth/network-request-failed":
-      return "เน็ตมีปัญหา กรุณาลองใหม่";
+      return "Network error. Please try again.";
     default:
-      return "สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่";
+      return "Registration failed. Please try again.";
   }
 }
 
 export default function Step6Summary({ navigation }: Props) {
   const { draft, reset } = useOnboarding();
   const { register } = useAuth();
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const parsed = useMemo(() => {
-    // assume validate มาแล้วจาก steps ก่อนหน้า
+  const summary = useMemo(() => {
     const sex = draft.sex!;
     const heightCm = Number(draft.heightCm);
     const weightKg = Number(draft.weightKg);
     const age = Number(draft.age);
-    const bodyFatPercent = draft.bodyFatPercent!;
-    const exerciseStyle = draft.exerciseStyle!;
-    const goal = draft.goal!;
 
     const bmi = calcBMI(heightCm, weightKg);
     const bmr = calcBMR(sex, heightCm, weightKg, age);
-    const mult = activityMultiplier(exerciseStyle);
+    const mult = activityMultiplier(draft.exerciseStyle!);
     const tdee = calcTDEE(bmr, mult);
-    const cal = recommendedCalories(tdee, goal);
-    const advice = healthAdviceThai({ bmi, goal, exerciseStyle });
+    const cal = recommendedCalories(tdee, draft.goal!);
+    const advice = healthAdvice({
+      bmi,
+      goal: draft.goal!,
+      exerciseStyle: draft.exerciseStyle!,
+    });
 
-    return { sex, heightCm, weightKg, age, bodyFatPercent, exerciseStyle, goal, bmi, bmr, tdee, cal, mult, advice };
+
+    return {
+      bmi,
+      bmr,
+      tdee,
+      cal,
+      advice,
+      mult,
+    };
   }, [draft]);
 
   const onFinish = async () => {
@@ -64,95 +80,170 @@ export default function Step6Summary({ navigation }: Props) {
     setError(null);
 
     try {
-      // 1) create auth user
-      const email = draft.email.trim();
-      const password = draft.password;
-      await register(email, password);
+      // 1) Register auth user
+      await register(draft.email.trim(), draft.password);
 
-      // 2) after register, auth currentUser should exist
-      // (ถ้าอยากชัวร์สุด ใช้ import { auth } แล้วอ่าน auth.currentUser)
-      // แต่เราจะอ่านจาก firebase/auth getAuth(app) ก็ได้
       const { getAuth } = await import("firebase/auth");
       const { app } = await import("../../services/firebase");
       const user = getAuth(app).currentUser;
-
       if (!user) throw new Error("NO_USER");
 
-      // 3) save to firestore users/{uid}
+      // 2) Save profile
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
 
-        sex: parsed.sex,
-        heightCm: parsed.heightCm,
-        weightKg: parsed.weightKg,
-        age: parsed.age,
+        sex: draft.sex,
+        heightCm: Number(draft.heightCm),
+        weightKg: Number(draft.weightKg),
+        age: Number(draft.age),
+        bodyFatPercent: draft.bodyFatPercent,
 
-        bodyFatPercent: parsed.bodyFatPercent,
-        exerciseStyle: parsed.exerciseStyle,
-        activityMultiplier: parsed.mult,
-        goal: parsed.goal,
+        exerciseStyle: draft.exerciseStyle,
+        activityMultiplier: summary.mult,
+        goal: draft.goal,
 
-        bmi: parsed.bmi,
-        bmr: parsed.bmr,
-        tdee: parsed.tdee,
-        caloriesRecommended: parsed.cal,
+        bmi: summary.bmi,
+        bmr: summary.bmr,
+        tdee: summary.tdee,
+        caloriesRecommended: summary.cal,
 
         onboardingCompleted: true,
       });
 
-      // 4) reset draft + go back to auth stack root
       reset();
-      // RootNavigator จะสลับไป MainTabs เองเพราะ user login แล้ว
+      // RootNavigator จะพาเข้า MainTabs อัตโนมัติ
     } catch (e: any) {
-      if (e?.message === "NO_USER") setError("สมัครสำเร็จแต่ไม่พบผู้ใช้ กรุณาลองใหม่");
-      else setError(mapFirebaseError(e?.code));
+      if (e?.message === "NO_USER") {
+        setError("Account created but user not found. Please login again.");
+      } else {
+        setError(mapFirebaseError(e?.code));
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <WizardProgress step={6} total={6} />
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "800" }}>Summary</Text>
+    <Screen>
+      <View style={{ flex: 1 }}>
+        <WizardProgress step={6} total={6} />
 
-        <Card label="BMI" value={`${parsed.bmi}`} />
-        <Card label="BMR (Mifflin-St Jeor)" value={`${parsed.bmr} kcal/day`} />
-        <Card label="TDEE" value={`${parsed.tdee} kcal/day`} />
-        <Card label="แนะนำแคล/วัน" value={`${parsed.cal} kcal/day`} />
+        <ScrollView
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 24,
+            gap: 14,
+          }}
+        >
+          {/* Header */}
+          <View style={{ gap: 4 }}>
+            <Text style={{ color: COLORS.text, fontSize: 26, fontWeight: "900" }}>
+              Summary
+            </Text>
+            <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+              Review your calculated results
+            </Text>
+          </View>
 
-        <View style={{ borderWidth: 1, borderColor: "#ddd", borderRadius: 14, padding: 12, gap: 8 }}>
-          <Text style={{ fontWeight: "800" }}>คำแนะนำ</Text>
-          <Text style={{ lineHeight: 20 }}>{parsed.advice}</Text>
-        </View>
+          {/* Key numbers */}
+          <Card style={{ gap: 12 }}>
+            <Stat label="BMI" value={`${summary.bmi}`} />
+            <Stat label="BMR" value={`${summary.bmr} kcal / day`} />
+            <Stat label="TDEE" value={`${summary.tdee} kcal / day`} />
 
-        {error ? <Text style={{ color: "#d00" }}>{error}</Text> : null}
+            <View
+              style={{
+                marginTop: 6,
+                padding: 14,
+                borderRadius: 14,
+                backgroundColor: COLORS.surface2,
+                borderWidth: 1,
+                borderColor: COLORS.primary,
+              }}
+            >
+              <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>
+                Recommended calories
+              </Text>
+              <Text
+                style={{
+                  color: COLORS.text,
+                  fontSize: 28,
+                  fontWeight: "900",
+                  marginTop: 4,
+                }}
+              >
+                {summary.cal} kcal / day
+              </Text>
+            </View>
+          </Card>
 
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <Pressable onPress={() => navigation.goBack()} style={[btn, ghost]} disabled={submitting}>
-            <Text style={[btnText, { color: "#111" }]}>Back</Text>
-          </Pressable>
-          <Pressable onPress={onFinish} style={[btn, { flex: 1 }]} disabled={submitting}>
-            <Text style={btnText}>{submitting ? "Saving..." : "Finish"}</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </View>
+          {/* Advice */}
+          <Card style={{ gap: 8 }}>
+            <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 16 }}>
+              Health advice
+            </Text>
+            <Text style={{ color: COLORS.subtext, lineHeight: 20 }}>
+              {summary.advice}
+            </Text>
+          </Card>
+
+          {error ? (
+            <Text style={{ color: COLORS.danger, fontWeight: "800" }}>
+              {error}
+            </Text>
+          ) : null}
+
+          {/* Actions */}
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              disabled={submitting}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                backgroundColor: "transparent",
+                paddingVertical: 14,
+                borderRadius: 14,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: COLORS.text, fontWeight: "900" }}>
+                Back
+              </Text>
+            </Pressable>
+
+            <View style={{ flex: 1 }}>
+              <PrimaryButton
+                title={submitting ? "Creating..." : "Finish"}
+                onPress={onFinish}
+                disabled={submitting}
+              />
+            </View>
+          </View>
+
+          {submitting ? (
+            <View style={{ alignItems: "center", marginTop: 6 }}>
+              <ActivityIndicator />
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+    </Screen>
   );
 }
 
-function Card({ label, value }: { label: string; value: string }) {
+/* ---------- small components ---------- */
+
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <View style={{ borderWidth: 1, borderColor: "#ddd", borderRadius: 14, padding: 12 }}>
-      <Text style={{ fontWeight: "800" }}>{label}</Text>
-      <Text style={{ marginTop: 6, fontSize: 16 }}>{value}</Text>
+    <View style={{ gap: 2 }}>
+      <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>{label}</Text>
+      <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 18 }}>
+        {value}
+      </Text>
     </View>
   );
 }
-
-const btn = { flex: 1, backgroundColor: "#111", padding: 14, borderRadius: 12, alignItems: "center" } as const;
-const ghost = { backgroundColor: "transparent", borderWidth: 1, borderColor: "#111" } as const;
-const btnText = { color: "white", fontWeight: "700" } as const;

@@ -1,7 +1,14 @@
 import React from "react";
-import { View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../theme/colors";
 
 export function Screen({ children }: { children: React.ReactNode }) {
-  return <View style={{ flex: 1, backgroundColor: COLORS.bg }}>{children}</View>;
+  return (
+    <SafeAreaView
+      edges={["top", "left", "right"]}
+      style={{ flex: 1, backgroundColor: COLORS.bg }}
+    >
+      {children}
+    </SafeAreaView>
+  );
 }
