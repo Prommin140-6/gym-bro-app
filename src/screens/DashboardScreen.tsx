@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 
 import { useAuth } from "../services/AuthContext";
 import { useTodayNutrition } from "../hooks/useTodayNutrition";
+import { useStreakStats } from "../hooks/useStreakStats";
 
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
@@ -11,11 +12,27 @@ import { COLORS } from "../theme/colors";
 
 import { ProgressRing } from "../components/ProgressRing";
 import { MacroRing } from "../components/MacroRing";
-import { FloatingAddButton } from "../components/FloatingAddButton";
+import FloatingAddButton from "../components/FloatingAddButton";
+
+import { Ionicons } from "@expo/vector-icons";
 
 import carbIcon from "../../assets/icon/carbicon.png";
 import proteinIcon from "../../assets/icon/proteinicon.png";
 import fatIcon from "../../assets/icon/faticon.png";
+
+function thDowLetterMonStart(date: Date) {
+  // จ อ พ พ ค ส อ (Mon..Sun)
+  const map = ["อ", "จ", "อ", "พ", "พ", "ค", "ส"]; // JS: 0=Sun
+  return map[date.getDay()] ?? "";
+}
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
 
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -23,6 +40,9 @@ export default function DashboardScreen() {
 
   const navigation = useNavigation<any>();
   const { goals, totals, progress } = useTodayNutrition(uid);
+
+  const { currentSuccessStreak, bestFoodStreak, bestBurnStreak, last7 } =
+    useStreakStats(uid, { fetchDays: 420 });
 
   const goGoals = () => navigation.navigate("NutritionGoals");
 
@@ -41,7 +61,6 @@ export default function DashboardScreen() {
 
         {/* Calories card */}
         <Card style={{ alignItems: "center" }}>
-          {/* subtle more button */}
           <Pressable
             onPress={goGoals}
             hitSlop={14}
@@ -63,7 +82,7 @@ export default function DashboardScreen() {
                 letterSpacing: 2,
               }}
             >
-              ...
+              .
             </Text>
           </Pressable>
 
@@ -76,14 +95,7 @@ export default function DashboardScreen() {
 
           <View style={{ height: 12 }} />
 
-          {/* Mini stats (centered) */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignSelf: "center",
-              marginTop: 6,
-            }}
-          >
+          <View style={{ flexDirection: "row", alignSelf: "center", marginTop: 6 }}>
             <MiniStat label="Carbs" value={`${totals.totalCarbs}g`} />
             <MiniStat label="Protein" value={`${totals.totalProtein}g`} />
             <MiniStat label="Fat" value={`${totals.totalFat}g`} />
@@ -103,12 +115,7 @@ export default function DashboardScreen() {
             nutritions
           </Text>
 
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-            }}
-          >
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
             <MacroRing
               icon={carbIcon}
               title="carb"
@@ -129,6 +136,111 @@ export default function DashboardScreen() {
               valueText={`${totals.totalFat}/${goals.fatTarget}g`}
               progress={progress.fatPct}
             />
+          </View>
+        </Card>
+
+        {/* ✅ Streak card (ตามรูปที่ส่งมา) */}
+        <Card>
+          <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 18 }}>
+            สถิติบันทึกต่อเนื่อง
+          </Text>
+
+          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 14 }}>
+            <Ionicons name="flame-outline" size={26} color={COLORS.text} />
+            <Text
+              style={{
+                color: COLORS.text,
+                fontSize: 46,
+                fontWeight: "900",
+                marginLeft: 10,
+              }}
+            >
+              {currentSuccessStreak}
+            </Text>
+            <Text style={{ color: COLORS.text, fontSize: 22, fontWeight: "900", marginLeft: 10 }}>
+              วัน
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: "row", marginTop: 14 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 20 }}>
+                {bestFoodStreak} วัน
+              </Text>
+              <Text style={{ color: COLORS.subtext, fontWeight: "800", marginTop: 4 }}>
+                บันทึกอาหารนานที่สุด
+              </Text>
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 20 }}>
+                {bestBurnStreak} วัน
+              </Text>
+              <Text style={{ color: COLORS.subtext, fontWeight: "800", marginTop: 4 }}>
+                บันทึกเผาผลาญนานที่สุด
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              height: 1,
+              backgroundColor: COLORS.border,
+              marginTop: 14,
+              marginBottom: 12,
+            }}
+          />
+
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            {last7.map((d) => {
+              const today = isSameDay(d.date, new Date());
+              const ringColor = d.restDay
+                ? COLORS.border
+                : d.success
+                ? COLORS.primary
+                : COLORS.border;
+
+              return (
+                <Pressable
+                  key={d.dateKey}
+                  onPress={() => navigation.navigate("ActivityDayDetail", { dateKey: d.dateKey })}
+                  style={{ alignItems: "center", width: 40 }}
+                >
+                  <View
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 17,
+                      borderWidth: today ? 3 : 2,
+                      borderColor: ringColor,
+                      backgroundColor: "transparent",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: today ? COLORS.primary : COLORS.subtext,
+                        fontWeight: "900",
+                        fontSize: 14,
+                      }}
+                    >
+                      {thDowLetterMonStart(d.date)}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={{
+                      marginTop: 6,
+                      color: today ? COLORS.primary : COLORS.subtext,
+                      fontWeight: "900",
+                    }}
+                  >
+                    {d.date.getDate()}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </Card>
 

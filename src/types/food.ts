@@ -1,6 +1,5 @@
 export type FoodRefType = "public" | "custom";
 
-/** ✅ canonical data category (lowercase) */
 export type FoodCategory =
   | "rice"
   | "noodle"
@@ -20,6 +19,5 @@ export type FoodBase = {
   protein_g: number;
   fat_g: number;
   imageUrl?: string | null;
-
   category?: FoodCategory;
 };

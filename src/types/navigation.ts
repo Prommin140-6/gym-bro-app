@@ -1,5 +1,5 @@
-// src/types/navigation.ts
 import type { NavigatorScreenParams } from "@react-navigation/native";
+import type { FoodBase } from "./food";
 
 // ---------- Auth Stack ----------
 export type AuthStackParamList = {
@@ -10,32 +10,37 @@ export type AuthStackParamList = {
 
 // ---------- Dashboard Stack ----------
 export type DashboardStackParamList = {
-  Dashboard: undefined;
+  DashboardHome: undefined;
   NutritionGoals: undefined;
-  EditGoal: {
-    key: "calorieTarget" | "carbTarget" | "proteinTarget" | "fatTarget";
-    title: string;
-    currentValue: number;
-  };
 };
 
 // ---------- Food Stack ----------
 export type FoodStackParamList = {
   FoodList: undefined;
-  FoodDetail: { food: any };
+  FoodDetail: { food: FoodBase };
   AddFood: undefined;
+};
+
+// ---------- Activity Stack ----------
+export type ActivityStackParamList = {
+  ActivityHome: undefined;          // container day/week/month
+  ExercisePosture: undefined;       // choose plan screen
+  ExerciseCollection: {
+    activityKey: import("../utils/met").ActivityKey; 
+  };
+  ActivityDayDetail: { dateKey: string };
 };
 
 // ---------- Main Tabs ----------
 export type MainTabParamList = {
   DashboardTab: NavigatorScreenParams<DashboardStackParamList>;
   FoodTab: NavigatorScreenParams<FoodStackParamList>;
-  ActivityTab: undefined;
+  ActivityTab: NavigatorScreenParams<ActivityStackParamList>;
   StepsTab: undefined;
   ProfileTab: undefined;
 };
 
-// ---------- Root Stack ----------
+// ---------- Root (ถ้าต้องใช้ในอนาคต) ----------
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   MainTabs: NavigatorScreenParams<MainTabParamList>;

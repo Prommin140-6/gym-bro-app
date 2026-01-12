@@ -1,3 +1,4 @@
+// src/hooks/useTodayNutrition.ts
 import { useEffect, useMemo, useState } from "react";
 import { onSnapshot, collection, orderBy, query } from "firebase/firestore";
 import { db } from "../services/firebase";
@@ -30,8 +31,12 @@ export function useTodayNutrition(uid: string | null) {
   });
 
   useEffect(() => {
-    if (!uid) return;
+    if (!uid) {
+      setGoals(defaultGoals);
+      return;
+    }
 
+    // ✅ subscribeGoals กลับมาเป็น GoalsDoc แล้ว
     const unsubGoals = subscribeGoals(uid, setGoals);
 
     const dateKey = getDateKey();

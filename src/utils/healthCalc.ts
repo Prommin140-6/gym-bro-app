@@ -1,10 +1,11 @@
+// src/utils/healthCalc.ts
 export type Sex = "male" | "female";
 
 export type ExerciseStyle =
-  | "exercise_everyday"
-  | "exercise_3_5_days_week"
-  | "exercise_1_2_days_week"
-  | "not_exercise";
+  | "exercise_everyday" // 6-7 days/week  -> PAL 1.7
+  | "exercise_3_5_days_week" // 4-5 days/week -> PAL 1.55
+  | "exercise_1_2_days_week" // 1-3 days/week -> PAL 1.375
+  | "not_exercise"; // sedentary -> PAL 1.2
 
 export type Goal =
   | "gain_weight"
@@ -12,49 +13,102 @@ export type Goal =
   | "maintain_weight"
   | "maintain_muscle";
 
+function round1(n: number) {
+  return Math.round(n * 10) / 10;
+}
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
 export function calcBMI(heightCm: number, weightKg: number) {
+  // BMI = weight / (height_m^2)  (สมการ 3)
   const h = heightCm / 100;
   const bmi = weightKg / (h * h);
   return round1(bmi);
 }
 
-// Mifflin-St Jeor
+/**
+ * BMR (สมการ 1,2) ตามที่คุณให้มา
+ * BMRชาย = 80 + 13.7W + 5H - 6.8A
+ * BMRหญิง = 85 + 9.6W + 1.8H - 4.7A
+ */
 export function calcBMR(sex: Sex, heightCm: number, weightKg: number, age: number) {
-  const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
-  const bmr = sex === "male" ? base + 5 : base - 161;
+  const w = Math.max(0, weightKg);
+  const h = Math.max(0, heightCm);
+  const a = Math.max(0, age);
+
+  const bmr =
+    sex === "male"
+      ? 80 + 13.7 * w + 5 * h - 6.8 * a
+      : 85 + 9.6 * w + 1.8 * h - 4.7 * a;
+
   return Math.round(bmr);
 }
 
-export function activityMultiplier(style: ExerciseStyle) {
-  switch (style) {
-    case "exercise_everyday":
-      return 1.725; // very active
-    case "exercise_3_5_days_week":
-      return 1.55; // moderately active
-    case "exercise_1_2_days_week":
-      return 1.375; // lightly active
-    case "not_exercise":
-    default:
-      return 1.2; // sedentary
-  }
-}
-
-export function calcTDEE(bmr: number, multiplier: number) {
-  return Math.round(bmr * multiplier);
+/**
+ * HRmax = 220 - age (สมการ 4)
+ */
+export function calcHRMax(age: number) {
+  return Math.max(0, Math.round(220 - Math.max(0, age)));
 }
 
 /**
- * แนะนำแคล/วันตาม goal
- * - lose_weight: -400 kcal/day
- * - gain_weight: +300 kcal/day
+ * FFM (Fat-Free Mass) = weightKg * (1 - bodyFat%)
+ */
+export function calcFFM(weightKg: number, bodyFatPercent: number) {
+  const bf = clamp(bodyFatPercent, 1, 70) / 100;
+  return weightKg * (1 - bf);
+}
+
+/**
+ * REE = 370 + 21.6 * FFM (สมการ 5)
+ */
+export function calcREEFromFFM(ffmKg: number) {
+  return Math.round(370 + 21.6 * Math.max(0, ffmKg));
+}
+
+/**
+ * PAL ตามตารางที่คุณให้มา:
+ * (1) ไม่ออกกำลัง/น้อยมาก -> 1.2
+ * (2) 1-3 ครั้ง/สัปดาห์ -> 1.375
+ * (3) 4-5 ครั้ง/สัปดาห์ -> 1.55
+ * (4) 6-7 ครั้ง/สัปดาห์ -> 1.7
+ * (5) วันละ 2 ครั้งขึ้นไป -> 1.9  (ยังไม่มีใน enum ปัจจุบัน)
+ */
+export function activityMultiplier(style: ExerciseStyle) {
+  switch (style) {
+    case "exercise_everyday":
+      return 1.7; // 6-7 ครั้ง/สัปดาห์
+    case "exercise_3_5_days_week":
+      return 1.55; // 4-5 ครั้ง/สัปดาห์
+    case "exercise_1_2_days_week":
+      return 1.375; // 1-3 ครั้ง/สัปดาห์
+    case "not_exercise":
+    default:
+      return 1.2; // ไม่ออก/น้อยมาก
+  }
+}
+
+/**
+ * TDEE = REE * PAL (สมการ 6)
+ * (ในกรณีไม่มี bodyfat ให้ใช้ BMR แทน REE เป็น fallback)
+ */
+export function calcTDEE(reeOrBmr: number, pal: number) {
+  return Math.round(Math.max(0, reeOrBmr) * Math.max(0, pal));
+}
+
+/**
+ * Calorie recommendation จาก TDEE:
+ * - lose_weight: deficit 500 kcal/day (ปลอดภัย ใช้งานได้จริง)
+ * - gain_weight: surplus 300 kcal/day
  * - maintain_weight: เท่าเดิม
- * - maintain_muscle: ใกล้เดิม (หรือ -150 แบบเบา ๆ) -> เลือก "เดิม" ให้ปลอดภัยสุด
+ * - maintain_muscle: เท่าเดิม (หรือ -150 แบบเบา ๆ ก็ได้ แต่ตอนนี้คงไว้ก่อน)
  */
 export function recommendedCalories(tdee: number, goal: Goal) {
   let cal = tdee;
-  if (goal === "lose_weight") cal = tdee - 400;
+  if (goal === "lose_weight") cal = tdee - 500;
   if (goal === "gain_weight") cal = tdee + 300;
-  if (goal === "maintain_muscle") cal = tdee; // คงไว้ก่อน
+  if (goal === "maintain_muscle") cal = tdee;
   if (goal === "maintain_weight") cal = tdee;
 
   // กันต่ำเกินไป
@@ -108,9 +162,4 @@ export function healthAdvice(params: {
 ${goalText}
 Advice: ${exerciseHint}
 Stay hydrated, sleep 7–8 hours, and hit your protein target`;
-}
-
-
-function round1(n: number) {
-  return Math.round(n * 10) / 10;
 }

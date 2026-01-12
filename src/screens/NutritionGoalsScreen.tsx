@@ -73,6 +73,7 @@ export default function NutritionGoalsScreen() {
         carbTarget: parsed.carb,
         proteinTarget: parsed.protein,
         fatTarget: parsed.fat,
+        customized: true,
       });
 
       Alert.alert("Updated", "Nutrition goals updated.", [
