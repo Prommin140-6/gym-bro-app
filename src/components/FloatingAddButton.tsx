@@ -1,6 +1,8 @@
 import React from "react";
 import { Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "../theme/colors";
 
 type Props = {
@@ -12,8 +14,22 @@ export default function FloatingAddButton({
   onPress,
   iconName = "add",
 }: Props) {
+  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
+
+  // ระยะลอยเพิ่ม (ปรับได้ตามความสวย)
+  const lift = 50;
+
   return (
-    <Pressable style={styles.fab} onPress={onPress}>
+    <Pressable
+      style={[
+        styles.fab,
+        {
+          bottom: tabBarHeight + insets.bottom + lift,
+        },
+      ]}
+      onPress={onPress}
+    >
       <Ionicons name={iconName} size={36} color="white" />
     </Pressable>
   );
@@ -23,7 +39,6 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     right: 20,
-    bottom: 20,
     width: 64,
     height: 64,
     borderRadius: 32,
@@ -35,5 +50,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 4 },
+    zIndex: 1000,
   },
 });

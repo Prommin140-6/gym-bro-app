@@ -13,17 +13,13 @@ const Stack = createNativeStackNavigator<DashboardStackParamList>();
 
 export default function DashboardStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen
-        name="DashboardHome"
-        component={DashboardScreen}
-        options={{ title: "Dashboard" }}
-      />
-      <Stack.Screen
-        name="NutritionGoals"
-        component={NutritionGoalsScreen}
-        options={{ title: "Nutrition goals" }}
-      />
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false, // ✅ เอา header ขาวออกทั้งหมด (เหมือน Activity)
+      }}
+    >
+      <Stack.Screen name="DashboardHome" component={DashboardScreen} />
+      <Stack.Screen name="NutritionGoals" component={NutritionGoalsScreen} />
     </Stack.Navigator>
   );
 }

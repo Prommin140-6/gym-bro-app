@@ -1,3 +1,8 @@
+// src/utils/met.ts
+
+// --------------------
+// Types
+// --------------------
 export type Intensity = "light" | "moderate" | "heavy";
 
 export type ActivityKey =
@@ -10,6 +15,17 @@ export type ActivityKey =
   | "flexibility_exercise"
   | "balance_exercise";
 
+export type ActivityItem = {
+  key: ActivityKey;
+  title: string;
+  subtitle: string;
+  group: "popular" | "collection";
+  hasDistance?: boolean;
+};
+
+// --------------------
+// Labels
+// --------------------
 export const ACTIVITY_LABEL: Record<ActivityKey, string> = {
   lifting: "Lifting",
   aerobic: "Aerobic",
@@ -21,78 +37,103 @@ export const ACTIVITY_LABEL: Record<ActivityKey, string> = {
   balance_exercise: "Balance Exercise",
 };
 
-/**
- * MET table (simple + consistent for MVP)
- * - Aerobic: 4 / 6 / 8
- * - Resistance: 3 / 5 / 6
- * - Flexibility: 2 / 2.5 / 3
- * - Balance: 2 / 2.5 / 3
- * Popular activities map to closest category:
- * - lifting -> resistance
- * - aerobic -> aerobic
- * - swimming -> aerobic (higher base)
- * - cycling -> aerobic (mid-high)
- */
-
-export function metOf(activity: ActivityKey, intensity: Intensity): number {
-  const pick = (l: number, m: number, h: number) =>
-    intensity === "light" ? l : intensity === "moderate" ? m : h;
-
-  switch (activity) {
-    case "aerobic_exercise":
-    case "aerobic":
-      return pick(4, 6, 8);
-
-    case "resistance_training":
-    case "lifting":
-      return pick(3, 5, 6);
-
-    case "flexibility_exercise":
-      return pick(2, 2.5, 3);
-
-    case "balance_exercise":
-      return pick(2, 2.5, 3);
-
-    // Popular with slightly higher realistic MET
-    case "swimming":
-      return pick(5.5, 7.5, 9);
-
-    case "cycling":
-      return pick(4.5, 6.8, 8.5);
-
-    default:
-      return pick(3, 5, 6);
-  }
-}
-
-export function kcalBurned(params: {
-  met: number;
-  weightKg: number;
-  minutes: number;
-}) {
-  const hours = Math.max(0, params.minutes) / 60;
-  const kcal = params.met * Math.max(0, params.weightKg) * hours;
-  return Math.round(kcal);
-}
-
-export type ActivityItem = {
-  key: ActivityKey;
-  title: string;
-  subtitle?: string;
-  group: "popular" | "collection";
-  hasDistance?: boolean;
-};
-
+// --------------------
+// Activity lists
+// --------------------
 export const POPULAR_ACTIVITIES: ActivityItem[] = [
-  { key: "lifting", title: "Lifting", subtitle: "Strength training", group: "popular" },
-  { key: "aerobic", title: "Aerobic", subtitle: "Cardio session", group: "popular" },
-  { key: "swimming", title: "Swimming", subtitle: "Pool swim", group: "popular", hasDistance: true },
-  { key: "cycling", title: "Cycling", subtitle: "Bike ride", group: "popular", hasDistance: true },
+  {
+    key: "lifting",
+    title: "Lifting",
+    subtitle: "Strength training",
+    group: "popular",
+  },
+  {
+    key: "aerobic",
+    title: "Aerobic",
+    subtitle: "Cardio session",
+    group: "popular",
+  },
+  {
+    key: "swimming",
+    title: "Swimming",
+    subtitle: "Pool swim",
+    group: "popular",
+    hasDistance: true,
+  },
+  {
+    key: "cycling",
+    title: "Cycling",
+    subtitle: "Bike ride",
+    group: "popular",
+    hasDistance: true,
+  },
 ];
 
 export const COLLECTION_ACTIVITIES: ActivityItem[] = [
-  { key: "aerobic_exercise", title: "Aerobic Exercise", subtitle: "Improve endurance", group: "collection" },
-  { key: "resistance_training", title: "Resistance Training", subtitle: "Build strength & muscle", group: "collection" },
-  { key: "flexibility_exercise", title: "Flexibility Exercise", subtitle: "Stretching & mobility", group: "collection" },
-  { key: "balance_exercise", title: "Balance Exercise", subtitle: "Stability & control", group: "collection" },
+  {
+    key: "aerobic_exercise",
+    title: "Aerobic Exercise",
+    subtitle: "Improve endurance",
+    group: "collection",
+  },
+  {
+    key: "resistance_training",
+    title: "Resistance Training",
+    subtitle: "Build strength & muscle",
+    group: "collection",
+  },
+  {
+    key: "flexibility_exercise",
+    title: "Flexibility Exercise",
+    subtitle: "Stretching & mobility",
+    group: "collection",
+  },
+  {
+    key: "balance_exercise",
+    title: "Balance Exercise",
+    subtitle: "Stability & control",
+    group: "collection",
+  },
 ];
+
+// --------------------
+// MET values
+// --------------------
+const MET_TABLE: Record<
+  ActivityKey,
+  { light: number; moderate: number; heavy: number }
+> = {
+  lifting: { light: 3.5, moderate: 5.0, heavy: 6.5 },
+  aerobic: { light: 4.0, moderate: 7.0, heavy: 9.0 },
+  swimming: { light: 5.0, moderate: 8.0, heavy: 10.0 },
+  cycling: { light: 4.0, moderate: 7.5, heavy: 10.0 },
+  aerobic_exercise: { light: 4.5, moderate: 7.5, heavy: 10.0 },
+  resistance_training: { light: 3.5, moderate: 5.0, heavy: 6.0 },
+  flexibility_exercise: { light: 2.0, moderate: 2.5, heavy: 3.0 },
+  balance_exercise: { light: 2.5, moderate: 3.0, heavy: 3.5 },
+};
+
+// --------------------
+// Helpers
+// --------------------
+export function metOf(key: ActivityKey, intensity: Intensity): number {
+  const row = MET_TABLE[key];
+  if (!row) return 0;
+
+  const v = row[intensity];
+  return Number.isFinite(v) ? v : 0;
+}
+
+// kcal/min = MET × 3.5 × weight(kg) / 200
+export function kcalBurned(
+  weightKg: number,
+  minutes: number,
+  met: number
+): number {
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return 0;
+  if (!Number.isFinite(minutes) || minutes <= 0) return 0;
+  if (!Number.isFinite(met) || met <= 0) return 0;
+
+  const kcal = (met * 3.5 * weightKg * minutes) / 200;
+  return Math.round(kcal);
+}

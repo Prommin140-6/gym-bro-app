@@ -188,7 +188,7 @@ export default function ActivityScreen() {
               borderWidth: 1,
               borderColor: COLORS.border,
             }}
-            onPress={() => Alert.alert("Achievement", "Coming soon")}
+            onPress={() => navigation.navigate("Achievements")}
           >
             <Ionicons name="trophy-outline" size={20} color={COLORS.text} />
           </Pressable>

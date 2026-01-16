@@ -10,6 +10,8 @@ import type { FoodBase, FoodCategory } from "../types/food";
 import { COLORS } from "../theme/colors";
 import { RADIUS } from "../theme/radius";
 
+import { Screen } from "../components/ui/Screen"; // ✅ ADD
+
 type TabType = "menus" | "add";
 type CategoryFilter = FoodCategory | "all";
 
@@ -24,7 +26,16 @@ const CATEGORY_LABEL: Record<FoodCategory, string> = {
   other: "Other",
 };
 
-const CATEGORY_ORDER: FoodCategory[] = ["rice", "noodle", "salad", "soup", "dessert", "drink", "snack", "other"];
+const CATEGORY_ORDER: FoodCategory[] = [
+  "rice",
+  "noodle",
+  "salad",
+  "soup",
+  "dessert",
+  "drink",
+  "snack",
+  "other",
+];
 
 // ✅ fixed height for category row
 const CATEGORY_ROW_HEIGHT = 46;
@@ -62,12 +73,14 @@ export default function FoodListScreen() {
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <Screen>
       <View style={{ flex: 1, padding: 16, gap: 14 }}>
         {/* Header */}
-        <View style={{ gap: 4 }}>
+        <View style={{ gap: 4, marginTop: 4 }}>
           <Text style={{ color: COLORS.text, fontSize: 26, fontWeight: "900" }}>Food</Text>
-          <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>Browse menus by category</Text>
+          <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+            Browse menus by category
+          </Text>
         </View>
 
         {/* Top Tabs */}
@@ -130,8 +143,12 @@ export default function FoodListScreen() {
                 }}
               >
                 <View style={{ gap: 2 }}>
-                  <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 16 }}>Add new</Text>
-                  <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>Create your custom menu</Text>
+                  <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 16 }}>
+                    Add new
+                  </Text>
+                  <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+                    Create your custom menu
+                  </Text>
                 </View>
                 <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 22 }}>＋</Text>
               </Pressable>
@@ -141,8 +158,12 @@ export default function FoodListScreen() {
                 <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>Loading...</Text>
               ) : results.length === 0 ? (
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
-                  <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: "900" }}>No food</Text>
-                  <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>Try search or change category.</Text>
+                  <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: "900" }}>
+                    No food
+                  </Text>
+                  <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+                    Try search or change category.
+                  </Text>
                 </View>
               ) : (
                 <FlatList
@@ -154,7 +175,10 @@ export default function FoodListScreen() {
                     paddingBottom: tabBarHeight + 12,
                   }}
                   renderItem={({ item }: { item: FoodBase }) => (
-                    <FoodCard food={item} onPress={() => navigation.navigate("FoodDetail", { food: item })} />
+                    <FoodCard
+                      food={item}
+                      onPress={() => navigation.navigate("FoodDetail", { food: item })}
+                    />
                   )}
                 />
               )}
@@ -162,7 +186,9 @@ export default function FoodListScreen() {
           </>
         ) : (
           <View style={{ gap: 12 }}>
-            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: "900" }}>Create your food</Text>
+            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: "900" }}>
+              Create your food
+            </Text>
             <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
               Add a custom menu and it will appear instantly in your list.
             </Text>
@@ -181,7 +207,7 @@ export default function FoodListScreen() {
           </View>
         )}
       </View>
-    </View>
+    </Screen>
   );
 }
 

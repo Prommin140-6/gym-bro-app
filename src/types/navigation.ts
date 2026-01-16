@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
+import type { ActivityKey } from "../utils/met";
 import type { FoodBase } from "./food";
 
 // ---------- Auth Stack ----------
@@ -23,12 +24,17 @@ export type FoodStackParamList = {
 
 // ---------- Activity Stack ----------
 export type ActivityStackParamList = {
-  ActivityHome: undefined;          // container day/week/month
-  ExercisePosture: undefined;       // choose plan screen
-  ExerciseCollection: {
-    activityKey: import("../utils/met").ActivityKey; 
-  };
+  ActivityHome: undefined;
+  ExercisePosture: undefined;
+  ExerciseCollection: { activityKey: ActivityKey };
   ActivityDayDetail: { dateKey: string };
+  Achievements: undefined;
+};
+
+// ---------- Profile Stack ----------
+export type ProfileStackParamList = {
+  ProfileHome: undefined;
+  EditProfile: undefined;
 };
 
 // ---------- Main Tabs ----------
@@ -37,10 +43,10 @@ export type MainTabParamList = {
   FoodTab: NavigatorScreenParams<FoodStackParamList>;
   ActivityTab: NavigatorScreenParams<ActivityStackParamList>;
   StepsTab: undefined;
-  ProfileTab: undefined;
+  ProfileTab: NavigatorScreenParams<ProfileStackParamList>;
 };
 
-// ---------- Root (ถ้าต้องใช้ในอนาคต) ----------
+// ---------- Root ----------
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   MainTabs: NavigatorScreenParams<MainTabParamList>;

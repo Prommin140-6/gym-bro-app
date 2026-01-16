@@ -18,21 +18,29 @@ export function ActivityAddModal(props: {
   weightKg: number;
   activityKey: ActivityKey | null;
 
-  // ✅ optional display
+  // optional display
   title?: string;
   description?: string;
   imageSource?: any;
 
-  // ✅ edit mode
+  // edit mode
   editLogId?: string | null;
   initialIntensity?: Intensity;
   initialMinutes?: number;
 }) {
   const {
-    visible, onClose, onSaved,
-    uid, weightKg, activityKey,
-    title, description, imageSource,
-    editLogId, initialIntensity, initialMinutes
+    visible,
+    onClose,
+    onSaved,
+    uid,
+    weightKg,
+    activityKey,
+    title,
+    description,
+    imageSource,
+    editLogId,
+    initialIntensity,
+    initialMinutes,
   } = props;
 
   const isEdit = Boolean(editLogId);
@@ -41,7 +49,7 @@ export function ActivityAddModal(props: {
   const [minutes, setMinutes] = useState(initialMinutes ?? 30);
   const [saving, setSaving] = useState(false);
 
-  // ✅ เมื่อเปิด modal ใหม่ให้ reset ค่าให้ตรง initial
+  // reset when open
   useEffect(() => {
     if (!visible) return;
     setIntensity(initialIntensity ?? "moderate");
@@ -53,13 +61,16 @@ export function ActivityAddModal(props: {
 
   const met = useMemo(() => {
     if (!activityKey) return 0;
-    return metOf(activityKey, intensity);
+    const v = metOf(activityKey, intensity);
+    return Number.isFinite(v) ? v : 0;
   }, [activityKey, intensity]);
 
+  // ✅ FIX สำคัญ: kcalBurned signature = (weightKg, minutes, met)
   const kcal = useMemo(() => {
     if (!activityKey) return 0;
-    return kcalBurned({ met, weightKg, minutes });
-  }, [activityKey, met, weightKg, minutes]);
+    const v = kcalBurned(weightKg, minutes, met);
+    return Number.isFinite(v) ? v : 0;
+  }, [activityKey, weightKg, minutes, met]);
 
   const reset = () => {
     setIntensity("moderate");
@@ -97,7 +108,6 @@ export function ActivityAddModal(props: {
 
       await upsertTodayDailySummary(uid, { updatedAt: "server" });
 
-      // ✅ ถ้าคุณอยาก “กลับหน้า ActivityScreen” ให้ใช้ onSaved()
       if (onSaved) onSaved();
       else onClose();
     } catch (e: any) {
@@ -142,17 +152,21 @@ export function ActivityAddModal(props: {
               onPress={onClose}
               hitSlop={12}
               style={{
-                width: 36, height: 36, borderRadius: 18,
-                alignItems: "center", justifyContent: "center",
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: "center",
+                justifyContent: "center",
                 backgroundColor: COLORS.surface2,
-                borderWidth: 1, borderColor: COLORS.border,
+                borderWidth: 1,
+                borderColor: COLORS.border,
               }}
             >
               <Text style={{ color: COLORS.text, fontWeight: "900" }}>✕</Text>
             </Pressable>
           </View>
 
-          {/* image / placeholder */}
+          {/* image */}
           <View
             style={{
               height: 160,
@@ -175,7 +189,15 @@ export function ActivityAddModal(props: {
 
           {/* intensity */}
           <Text style={{ color: COLORS.text, fontWeight: "900", marginTop: 14 }}>Intensity</Text>
-          <View style={{ flexDirection: "row", backgroundColor: COLORS.surface2, borderRadius: 16, padding: 4, marginTop: 10 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              backgroundColor: COLORS.surface2,
+              borderRadius: 16,
+              padding: 4,
+              marginTop: 10,
+            }}
+          >
             {(["heavy", "moderate", "light"] as Intensity[]).map((k) => {
               const active = intensity === k;
               return (
@@ -234,7 +256,7 @@ export function ActivityAddModal(props: {
               {kcal} kcal
             </Text>
             <Text style={{ color: COLORS.subtext, fontWeight: "800", marginTop: 2 }}>
-              MET {met} • Weight {weightKg} kg
+              MET {Number.isFinite(met) ? met.toFixed(1) : "0.0"} • Weight {weightKg} kg
             </Text>
           </View>
 

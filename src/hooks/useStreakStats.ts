@@ -99,28 +99,62 @@ export function useStreakStats(
 
     /* ----- current streak ----- */
     const calcCurrent = (field: keyof DailySummaryLike) => {
+      // ✅ RULE SUMMARY
+      // 1) ถ้าวันนี้ผ่านแล้ว => นับ streak รวมวันนี้
+      // 2) ถ้าวันนี้ยังไม่ผ่าน/ไม่มี doc/หรือวันนี้ restDay => ให้ดูย้อนหลังจาก "เมื่อวาน"
+      //    - ถ้าเมื่อวานเป็น restDay => ข้ามไปวันก่อนหน้า (streak คงเดิม)
+      //    - ถ้าวันล่าสุดที่ไม่ใช่ restDay ไม่ผ่าน => streak = 0 ทันที
+      //    - ถ้าวันล่าสุดที่ไม่ใช่ restDay ผ่าน => เริ่มนับจากวันนั้น (เช่นเมื่อวาน/วันก่อน)
+      // 3) ระหว่างนับ streak: restDay = ข้าม ไม่บวก ไม่รีเซ็ต
+
+      const today = new Date();
+
+      const findLastNonRestDay = (start: Date) => {
+        let cursor = new Date(start);
+        for (let i = 0; i < fetchDays; i++) {
+          const key = getDateKey(cursor);
+          const doc = docs[key];
+          if (doc && !doc.restDay) return { key, date: cursor, doc };
+          cursor = addDays(cursor, -1);
+        }
+        return null;
+      };
+
+      // 1) ถ้าวันนี้ผ่านจริง => start จากวันนี้
+      const todayKey = getDateKey(today);
+      const todayDoc = docs[todayKey];
+
+      let startCursor: Date;
+
+      if (todayDoc && !todayDoc.restDay && Boolean(todayDoc[field] ?? false)) {
+        startCursor = new Date(today);
+      } else {
+        // 2) วันนี้ยังไม่ผ่าน => หาวันล่าสุดที่ไม่ใช่ restDay (เริ่มจากเมื่อวาน)
+        const last = findLastNonRestDay(addDays(today, -1));
+        if (!last) return 0;
+
+        const ok = Boolean(last.doc?.[field] ?? false);
+        if (!ok) return 0;
+
+        startCursor = last.date;
+      }
+
+      // 3) นับ streak ต่อเนื่องย้อนหลัง (ข้าม restDay)
       let count = 0;
-      let cursor = today;
+      let cursor = new Date(startCursor);
 
       for (let i = 0; i < fetchDays; i++) {
         const key = getDateKey(cursor);
         const doc = docs[key];
-
-        // ✅ วันนี้ snapshot ยังไม่มา → ข้าม 1 ครั้ง
-        if (!doc) {
-          if (i === 0) {
-            cursor = addDays(cursor, -1);
-            continue;
-          }
-          break;
-        }
+        if (!doc) break;
 
         if (doc.restDay) {
           cursor = addDays(cursor, -1);
           continue;
         }
 
-        if (!doc[field]) break;
+        const ok = Boolean(doc[field] ?? false);
+        if (!ok) break;
 
         count++;
         cursor = addDays(cursor, -1);
@@ -128,6 +162,7 @@ export function useStreakStats(
 
       return count;
     };
+
 
     /* ----- best streak ----- */
     const calcBest = (field: keyof DailySummaryLike) => {

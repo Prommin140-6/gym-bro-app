@@ -1,9 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, Alert } from "react-native";
+import { View, Text, Alert, Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 
 import { useAuth } from "../services/AuthContext";
-import { defaultGoals, subscribeGoals, upsertGoals, type GoalsDoc } from "../services/firestoreGoals";
+import {
+  defaultGoals,
+  subscribeGoals,
+  upsertGoals,
+  type GoalsDoc,
+} from "../services/firestoreGoals";
 
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
@@ -53,10 +59,14 @@ export default function NutritionGoalsScreen() {
   }, [calorieTarget, carbTarget, proteinTarget, fatTarget]);
 
   const validate = () => {
-    if (parsed.calorie < 800 || parsed.calorie > 6000) return "Calorie target should be 800–6000 kcal.";
-    if (parsed.carb < 0 || parsed.carb > 1000) return "Carbohydrate target is invalid.";
-    if (parsed.protein < 0 || parsed.protein > 500) return "Protein target is invalid.";
-    if (parsed.fat < 0 || parsed.fat > 300) return "Fat target is invalid.";
+    if (parsed.calorie < 800 || parsed.calorie > 6000)
+      return "Calorie target should be 800–6000 kcal.";
+    if (parsed.carb < 0 || parsed.carb > 1000)
+      return "Carbohydrate target is invalid.";
+    if (parsed.protein < 0 || parsed.protein > 500)
+      return "Protein target is invalid.";
+    if (parsed.fat < 0 || parsed.fat > 300)
+      return "Fat target is invalid.";
     return null;
   };
 
@@ -90,7 +100,9 @@ export default function NutritionGoalsScreen() {
     return (
       <Screen>
         <View style={{ flex: 1, padding: 16, justifyContent: "center" }}>
-          <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>Loading goals...</Text>
+          <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>
+            Loading goals...
+          </Text>
         </View>
       </Screen>
     );
@@ -99,14 +111,32 @@ export default function NutritionGoalsScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, padding: 16, gap: 14 }}>
-        <View style={{ gap: 4 }}>
+        {/* 🔙 Back header */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: COLORS.surface2,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+          </Pressable>
+
           <Text style={{ color: COLORS.text, fontSize: 22, fontWeight: "900" }}>
             Nutrition goals
           </Text>
-          <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
-            Adjust targets and Dashboard will update in realtime.
-          </Text>
         </View>
+
+        <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+          Adjust targets and Dashboard will update in realtime.
+        </Text>
 
         <Card style={{ gap: 12 }}>
           <TextField
@@ -138,12 +168,24 @@ export default function NutritionGoalsScreen() {
             placeholder="0"
           />
 
-          <Text style={{ color: COLORS.subtext, fontSize: 12, fontWeight: "700", lineHeight: 18 }}>
-            Tip: These are MVP defaults. You can auto-calculate targets later based on TDEE and goal.
+          <Text
+            style={{
+              color: COLORS.subtext,
+              fontSize: 12,
+              fontWeight: "700",
+              lineHeight: 18,
+            }}
+          >
+            Tip: These are MVP defaults. You can auto-calculate targets later
+            based on TDEE and goal.
           </Text>
         </Card>
 
-        <PrimaryButton title={saving ? "Saving..." : "Save"} onPress={onSave} disabled={saving} />
+        <PrimaryButton
+          title={saving ? "Saving..." : "Save"}
+          onPress={onSave}
+          disabled={saving}
+        />
       </View>
     </Screen>
   );

@@ -1,23 +1,29 @@
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 export type UserProfileDoc = {
-  // ✅ snake_case (ไว้ให้ hook เดิมของคุณใช้ได้)
+  // snake_case (รองรับ hook / logic เดิม)
   weight_kg: number;
   height_cm?: number;
 
   sex?: "male" | "female";
   age?: number;
 
-  // ✅ camelCase (ตรงกับ data ใน Firestore ของคุณ)
+  // camelCase (ข้อมูลจริงใน Firestore)
   weightKg?: number;
   heightCm?: number;
 
   exerciseStyle?: string;
 
-  // รองรับทั้ง goal/goalType (ของคุณใช้ goal)
+  // goal (รองรับทั้ง goal / goalType)
   goalType?: string;
   goal?: string;
+
+  // profile extensions
+  firstName?: string | null;
+  lastName?: string | null;
+  dob?: string | null; // YYYY-MM-DD
+  photoURL?: string;
 };
 
 const DEFAULT_PROFILE: UserProfileDoc = {
@@ -54,16 +60,25 @@ function normalizeProfile(data: any): UserProfileDoc {
     exerciseStyle,
     goalType,
     goal,
+
+    // profile extensions
+    firstName: typeof data?.firstName === "string" ? data.firstName : null,
+    lastName: typeof data?.lastName === "string" ? data.lastName : null,
+    dob: typeof data?.dob === "string" ? data.dob : null,
+    photoURL: typeof data?.photoURL === "string" ? data.photoURL : undefined,
   };
 }
 
 /**
- * ✅ Subscribe profile (robust)
+ * Subscribe profile (robust)
  * Try:
  * 1) users/{uid}
  * 2) users/{uid}/profile/main
  */
-export function subscribeUserProfile(uid: string, cb: (p: UserProfileDoc) => void) {
+export function subscribeUserProfile(
+  uid: string,
+  cb: (p: UserProfileDoc) => void
+) {
   const ref1 = doc(db, "users", uid);
 
   let unsub2: (() => void) | null = null;
@@ -74,11 +89,14 @@ export function subscribeUserProfile(uid: string, cb: (p: UserProfileDoc) => voi
       return;
     }
 
-    // fallback to users/{uid}/profile/main
+    // fallback: users/{uid}/profile/main
     if (!unsub2) {
       const ref2 = doc(db, "users", uid, "profile", "main");
       unsub2 = onSnapshot(ref2, (snap2) => {
-        if (!snap2.exists()) return cb(DEFAULT_PROFILE);
+        if (!snap2.exists()) {
+          cb(DEFAULT_PROFILE);
+          return;
+        }
         cb(normalizeProfile(snap2.data()));
       });
     }
@@ -88,4 +106,63 @@ export function subscribeUserProfile(uid: string, cb: (p: UserProfileDoc) => voi
     unsub1();
     if (unsub2) unsub2();
   };
+}
+
+/**
+ * Update profile (merge)
+ * Writes to users/{uid}
+ * - Auto-calc age from dob when provided
+ * - Backward compatible with manual age
+ */
+export type UpdateUserProfileInput = {
+  sex?: "male" | "female";
+  heightCm?: number;
+  weightKg?: number;
+  age?: number; // fallback สำหรับ user เก่า
+  exerciseStyle?: string;
+  goal?: string;
+  goalType?: string;
+
+  firstName?: string | null;
+  lastName?: string | null;
+  dob?: string | null; // YYYY-MM-DD
+
+  photoURL?: string;
+};
+
+/**
+ * Calculate age from DOB (YYYY-MM-DD)
+ * Safe for timezone & birthday edge cases
+ */
+function calcAgeFromDob(dob: string): number {
+  const [y, m, d] = dob.split("-").map(Number);
+  const today = new Date();
+
+  let age = today.getFullYear() - y;
+
+  const hasHadBirthdayThisYear =
+    today.getMonth() + 1 > m ||
+    (today.getMonth() + 1 === m && today.getDate() >= d);
+
+  if (!hasHadBirthdayThisYear) {
+    age -= 1;
+  }
+
+  return age;
+}
+
+export async function updateUserProfile(
+  uid: string,
+  patch: UpdateUserProfileInput
+) {
+  const ref = doc(db, "users", uid);
+
+  const payload: UpdateUserProfileInput = { ...patch };
+
+  // Auto-calc age when dob is provided
+  if (patch.dob) {
+    payload.age = calcAgeFromDob(patch.dob);
+  }
+
+  await setDoc(ref, payload, { merge: true });
 }

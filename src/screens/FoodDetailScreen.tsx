@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, Image, Pressable, Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { FoodBase } from "../types/food";
 import { useAuth } from "../services/AuthContext";
 import { addFoodToTodayLog } from "../services/firestoreFoodLog";
@@ -65,7 +66,9 @@ export default function FoodDetailScreen({ route, navigation }: any) {
         servings,
       });
 
-      Alert.alert("Success", "Added to today's log!", [{ text: "OK", onPress: goDashboard }]);
+      Alert.alert("Success", "Added to today's log!", [
+        { text: "OK", onPress: goDashboard },
+      ]);
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "Add failed");
     } finally {
@@ -76,6 +79,29 @@ export default function FoodDetailScreen({ route, navigation }: any) {
   return (
     <Screen>
       <View style={{ flex: 1, padding: 16, gap: 12 }}>
+        {/* 🔙 Back header */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: COLORS.surface2,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+          </Pressable>
+
+          <Text style={{ color: COLORS.text, fontSize: 22, fontWeight: "900" }}>
+            Food detail
+          </Text>
+        </View>
+
         {/* Image */}
         <Card style={{ padding: 10 }}>
           <Image
@@ -94,14 +120,11 @@ export default function FoodDetailScreen({ route, navigation }: any) {
             {food.calories_per_serving} kcal / serving
           </Text>
 
-          {/* Macro summary line (colored) */}
           <Text style={{ fontSize: 13, fontWeight: "900" }}>
             <Text style={{ color: "#FFD84D" }}>C </Text>
             <Text style={{ color: COLORS.text }}>{totals.carbs}g  </Text>
-
             <Text style={{ color: "#FF5A5A" }}>P </Text>
             <Text style={{ color: COLORS.text }}>{totals.protein}g  </Text>
-
             <Text style={{ color: "#B388FF" }}>F </Text>
             <Text style={{ color: COLORS.text }}>{totals.fat}g</Text>
           </Text>
