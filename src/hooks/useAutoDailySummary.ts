@@ -78,11 +78,14 @@ export function useAutoDailySummary(uid: string | null) {
       return;
     }
 
-    const burnSuccess = burned >= burnT;
-    const calorieSuccess = eatenCalories >= calT;
+    const OVER_LIMIT = 100;
 
-    // ✅ rule: restDay => success=false (streak จะไปคิดใน week/month)
+    const burnSuccess = burned >= burnT && burned <= burnT + OVER_LIMIT;
+    const calorieSuccess = eatenCalories >= calT && eatenCalories <= calT + OVER_LIMIT;
+
+    // restDay => success=false เหมือนเดิม
     const success = restDay ? false : burnSuccess && calorieSuccess;
+
 
     const sig = JSON.stringify({
       burned,

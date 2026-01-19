@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, Alert, ScrollView } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
@@ -24,6 +25,8 @@ import { ActivityWeekView } from "../components/activity/ActivityWeekView";
 import { ActivityMonthView } from "../components/activity/ActivityMonthView";
 
 import FloatingAddButton from "../components/FloatingAddButton";
+import { db } from "../services/firebase";
+import { calcTargets } from "../utils/targets";
 
 type TabKey = "day" | "week" | "month";
 
@@ -53,6 +56,22 @@ export default function ActivityScreen() {
 
   // ===== Targets =====
   const { burnTarget } = useBurnTarget(uid, burnProfile);
+
+  // ✅ Recommended burn target from profile
+  const recommendedBurnTarget = useMemo(() => {
+    if (!burnProfile) return 0;
+
+    const out = calcTargets({
+      sex: burnProfile.sex,
+      age: Number(burnProfile.age),
+      heightCm: Number(burnProfile.heightCm),
+      weightKg: Number(burnProfile.weightKg),
+      exerciseStyle: burnProfile.exerciseStyle,
+      goal: burnProfile.goalType,
+    });
+
+    return typeof out?.burnTarget === "number" ? out.burnTarget : 0;
+  }, [burnProfile]);
 
   // ===== Today =====
   const { activities, totals, dailySummary, loading } = useActivityToday(uid);
@@ -104,6 +123,54 @@ export default function ActivityScreen() {
     ]);
   };
 
+  // ===== Update burn target (custom) =====
+  const onUpdateBurnTarget = async (value: number) => {
+    if (!uid) return Alert.alert("Error", "Not logged in");
+    if (!Number.isFinite(value) || value <= 0) return;
+
+    try {
+      const ref = doc(db, "users", uid, "goals", "targets");
+      await setDoc(
+        ref,
+        {
+          burnTarget: Number(value),
+          customized: true,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn("[ActivityScreen] update burnTarget failed:", e);
+      Alert.alert("Error", "Failed to update goal");
+    }
+  };
+
+  // ✅ Recommended: update burnTarget immediately + customized=false
+  const onUseAutoBurnTarget = async () => {
+    if (!uid) return Alert.alert("Error", "Not logged in");
+
+    const rec = Number(recommendedBurnTarget ?? 0);
+    if (!rec || rec <= 0) {
+      return Alert.alert("Error", "Recommendation not ready (profile missing)");
+    }
+
+    try {
+      const ref = doc(db, "users", uid, "goals", "targets");
+      await setDoc(
+        ref,
+        {
+          customized: false,
+          burnTarget: rec,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn("[ActivityScreen] apply recommended failed:", e);
+      Alert.alert("Error", "Failed to apply recommended goal");
+    }
+  };
+
   // ===== Auto upsert daily summary =====
   const lastSig = useRef<string>("");
 
@@ -117,9 +184,12 @@ export default function ActivityScreen() {
     const burnT = Number(burnTarget ?? 0);
     const calT = Number(nutritionGoals.calorieTarget ?? 0);
 
-    const burnSuccess = burned >= burnT;
-    const calorieSuccess = eatenCalories >= calT;
+    const OVER_LIMIT = 100;
+
+    const burnSuccess = burned >= burnT && burned <= burnT + OVER_LIMIT;
+    const calorieSuccess = eatenCalories >= calT && eatenCalories <= calT + OVER_LIMIT;
     const success = restDay ? false : burnSuccess && calorieSuccess;
+
 
     const sig = JSON.stringify({
       burned,
@@ -146,7 +216,7 @@ export default function ActivityScreen() {
       burnSuccess,
       calorieSuccess,
       success,
-    }).catch(() => {});
+    }).catch(() => { });
   }, [
     uid,
     totals.totalBurned,
@@ -246,6 +316,9 @@ export default function ActivityScreen() {
               restDay={restDay}
               onRestDay={onToggleRestDay}
               onDelete={onDelete}
+              onUpdateBurnTarget={onUpdateBurnTarget}
+              onUseAutoBurnTarget={onUseAutoBurnTarget}
+              recommendedBurnTarget={recommendedBurnTarget} // ✅ ส่งเข้าไปเพื่อโชว์ “Recommended • 320 kcal”
             />
           </ScrollView>
         )}
@@ -256,9 +329,7 @@ export default function ActivityScreen() {
               weekDays={weekDays}
               weekTotalBurned={weekTotalBurned}
               streak={streak}
-              onSelectDay={(dateKey) =>
-                navigation.navigate("ActivityDayDetail", { dateKey })
-              }
+              onSelectDay={(dateKey) => navigation.navigate("ActivityDayDetail", { dateKey })}
             />
           </ScrollView>
         )}
@@ -269,27 +340,15 @@ export default function ActivityScreen() {
               baseDate={monthBase}
               loading={loadingMonth}
               monthDocs={monthDocs}
-              onPrevMonth={() =>
-                setMonthBase(
-                  (d) => new Date(d.getFullYear(), d.getMonth() - 1, 1)
-                )
-              }
-              onNextMonth={() =>
-                setMonthBase(
-                  (d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)
-                )
-              }
-              onSelectDay={(dateKey) =>
-                navigation.navigate("ActivityDayDetail", { dateKey })
-              }
+              onPrevMonth={() => setMonthBase((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              onNextMonth={() => setMonthBase((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              onSelectDay={(dateKey) => navigation.navigate("ActivityDayDetail", { dateKey })}
             />
           </ScrollView>
         )}
 
         {/* ===== FAB ===== */}
-        <FloatingAddButton
-          onPress={() => navigation.navigate("ExercisePosture")}
-        />
+        <FloatingAddButton onPress={() => navigation.navigate("ExercisePosture")} />
       </View>
     </Screen>
   );

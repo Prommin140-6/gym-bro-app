@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, Image, ImageSourcePropType } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { COLORS } from "../theme/colors";
@@ -12,7 +12,7 @@ function clamp01(n: number) {
 /** Lighten/Darken a hex color (#RRGGBB) by amount (-1..1) */
 function shiftHex(hex: string, amount: number) {
   const h = (hex || "").trim();
-  if (!/^#?[0-9a-fA-F]{6}$/.test(h)) return hex; // if not hex, just return as-is
+  if (!/^#?[0-9a-fA-F]{6}$/.test(h)) return hex;
   const clean = h.startsWith("#") ? h.slice(1) : h;
 
   const r = parseInt(clean.slice(0, 2), 16);
@@ -21,7 +21,6 @@ function shiftHex(hex: string, amount: number) {
 
   const clamp255 = (x: number) => Math.max(0, Math.min(255, x));
   const mix = (c: number) => {
-    // amount > 0 => toward 255, amount < 0 => toward 0
     const target = amount >= 0 ? 255 : 0;
     return clamp255(Math.round(c + (target - c) * Math.min(1, Math.abs(amount))));
   };
@@ -40,6 +39,11 @@ export function MacroRing(props: {
   strokeWidth?: number;
   icon?: ImageSourcePropType;
   color?: string; // สี base ของวง
+
+  // ✅ NEW: ถ้าเกินเป้าหมายตาม threshold → เปลี่ยนเป็นสี danger
+  value?: number;        // กินจริง (g)
+  target?: number;       // เป้าหมาย (g)
+  dangerOverBy?: number; // เกินเป้าอีกกี่ g ถึงจะเป็นสีแดง (default 10)
 }) {
   const size = props.size ?? 78;
   const stroke = props.strokeWidth ?? 12;
@@ -49,16 +53,31 @@ export function MacroRing(props: {
   const p = clamp01(props.progress);
   const dashOffset = c * (1 - p);
 
-  const base = props.color ?? COLORS.primary;
+  const dangerOverBy = Number(props.dangerOverBy ?? 10);
 
-  // ✅ ทำไล่เฉดอัตโนมัติจาก base (ให้ใกล้ feeling เดียวกับ CalToday)
-  const gradA = shiftHex(base, 0.35); // สว่างขึ้น
-  const gradB = shiftHex(base, -0.10); // เข้มลงนิดนึง
+  const isDanger = useMemo(() => {
+    const v = Number(props.value ?? NaN);
+    const t = Number(props.target ?? NaN);
+    if (!Number.isFinite(v) || !Number.isFinite(t) || t <= 0) return false;
+    return v >= t + dangerOverBy;
+  }, [props.value, props.target, dangerOverBy]);
+
+  const base = isDanger ? COLORS.danger : (props.color ?? COLORS.primary);
+
+  // ไล่เฉดจาก base
+  const gradA = shiftHex(base, 0.35);
+  const gradB = shiftHex(base, -0.10);
 
   // ✅ gradient id ต้องไม่ซ้ำกันในหน้าเดียวกัน
-  const gradId = `macroRingGrad_${String(props.title || "x")
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, "_")}`;
+  const gradId = useMemo(() => {
+    const safeTitle = String(props.title || "x")
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, "_");
+    return `macroRingGrad_${safeTitle}_${Math.random().toString(36).slice(2, 8)}`;
+  }, [props.title]);
+
+  // ถ้า danger → ใช้สีแดงล้วน (ชัด ๆ)
+  const strokeColor = isDanger ? COLORS.danger : `url(#${gradId})`;
 
   return (
     <View style={{ alignItems: "center", width: size + 12 }}>
@@ -82,12 +101,12 @@ export function MacroRing(props: {
             fill="none"
           />
 
-          {/* progress (gradient) */}
+          {/* progress */}
           <Circle
             cx={size / 2}
             cy={size / 2}
             r={r}
-            stroke={`url(#${gradId})`}
+            stroke={strokeColor}
             strokeWidth={stroke}
             fill="none"
             strokeDasharray={`${c} ${c}`}

@@ -61,7 +61,7 @@ export function useBurnTarget(uid: string | null, burnProfile: BurnProfile | nul
               proteinTarget: defaultGoals.proteinTarget,
               fatTarget: defaultGoals.fatTarget,
               burnTarget: defaultGoals.burnTarget,
-              customized: false,
+              customized: false, // ✅ important
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             },
@@ -87,6 +87,7 @@ export function useBurnTarget(uid: string | null, burnProfile: BurnProfile | nul
       return;
     }
 
+    // 🔒 ถ้าผู้ใช้ตั้งเอง -> ไม่ทำ auto targets (สำคัญที่สุด)
     if (goals.customized) {
       console.log("[useBurnTarget] customized=true -> skip auto targets");
       return;
@@ -102,7 +103,10 @@ export function useBurnTarget(uid: string | null, burnProfile: BurnProfile | nul
     });
 
     // สร้าง signature จาก profile + ผลลัพธ์ เพื่อกัน loop
+    // ✅ เพิ่ม customized ลงไปเพื่อให้ตอน customized เปลี่ยนจาก true -> false
+    //    แล้วคำนวณใหม่/เขียนใหม่ได้อย่างถูกต้อง
     const sig = JSON.stringify({
+      customized: Boolean(goals.customized),
       p: {
         sex: burnProfile.sex,
         age: Number(burnProfile.age),
@@ -134,6 +138,7 @@ export function useBurnTarget(uid: string | null, burnProfile: BurnProfile | nul
 
     if (!needWrite) return;
 
+    // ✅ ตั้ง sig ก่อนยิง setDoc กัน race ที่ snapshot มาช้า/เร็ว
     lastWriteSig.current = sig;
 
     const ref = doc(db, "users", uid, "goals", "targets");
@@ -145,6 +150,7 @@ export function useBurnTarget(uid: string | null, burnProfile: BurnProfile | nul
         proteinTarget: out.proteinTarget,
         fatTarget: out.fatTarget,
         burnTarget: out.burnTarget,
+        customized: false, // ✅ บังคับให้เป็น auto mode (เผื่อ doc เคยไม่มีฟิลด์)
         updatedAt: serverTimestamp(),
       },
       { merge: true }
@@ -152,6 +158,7 @@ export function useBurnTarget(uid: string | null, burnProfile: BurnProfile | nul
   }, [
     uid,
     burnProfile,
+    // ✅ ต้อง depend on customized เพื่อให้ “Use auto” แล้ว effect ทำงาน
     goals.customized,
     goals.calorieTarget,
     goals.carbTarget,

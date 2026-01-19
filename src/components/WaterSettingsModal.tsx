@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import { COLORS } from "../theme/colors";
 import { useWater } from "../hooks/useWater";
+import { MAX_WATER_CUPS_PER_DAY } from "../services/firestoreWater";
 
 type Props = {
   visible: boolean;
@@ -25,7 +26,7 @@ export default function WaterSettingsModal({ visible, onClose, uid }: Props) {
   const [cups, setCups] = useState<number>(water.goalCups);
 
   useEffect(() => {
-    if (visible) setCups(water.goalCups);
+    if (visible) setCups(Math.min(MAX_WATER_CUPS_PER_DAY, water.goalCups));
   }, [visible, water.goalCups]);
 
   const mlPerCup = water.targets.mlPerCup || 250;
@@ -41,8 +42,9 @@ export default function WaterSettingsModal({ visible, onClose, uid }: Props) {
 
   const onReset = async () => {
     await water.resetTargets();
-    // update local cups UI immediately (default 2000ml)
-    setCups(Math.max(1, Math.round(2000 / mlPerCup)));
+    // default 2000ml -> แปลงเป็น cups แล้ว cap ไม่เกิน 7
+    const defaultCups = Math.max(1, Math.round(2000 / mlPerCup));
+    setCups(Math.min(MAX_WATER_CUPS_PER_DAY, defaultCups));
   };
 
   const onSave = async () => {
@@ -69,7 +71,7 @@ export default function WaterSettingsModal({ visible, onClose, uid }: Props) {
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>Water drinking settings</Text>
-              <Text style={styles.sub}>Goal per day</Text>
+              <Text style={styles.sub}>Goal per day (max {MAX_WATER_CUPS_PER_DAY} cups)</Text>
             </View>
 
             <Pressable onPress={onClose} hitSlop={12} style={styles.iconBtn}>
@@ -87,14 +89,14 @@ export default function WaterSettingsModal({ visible, onClose, uid }: Props) {
           <View style={{ marginTop: 16 }}>
             <View style={styles.sliderRow}>
               <Text style={styles.sliderMin}>1</Text>
-              <Text style={styles.sliderMax}>20</Text>
+              <Text style={styles.sliderMax}>{MAX_WATER_CUPS_PER_DAY}</Text>
             </View>
 
             <Slider
               value={cups}
               onValueChange={(v) => setCups(Math.round(v))}
               minimumValue={1}
-              maximumValue={20}
+              maximumValue={MAX_WATER_CUPS_PER_DAY}
               step={1}
               minimumTrackTintColor={COLORS.primary}
               maximumTrackTintColor={COLORS.border}
@@ -141,7 +143,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
 
-    // ✅ อย่าใช้ COLORS.card (ของคุณไม่มี)
     backgroundColor: "rgba(20,20,20,0.98)",
 
     ...Platform.select({

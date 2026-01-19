@@ -1,14 +1,10 @@
 // src/services/firestoreWater.ts
-import {
-  doc,
-  onSnapshot,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-  runTransaction,
-} from "firebase/firestore";
+import { doc, onSnapshot, setDoc, serverTimestamp, runTransaction } from "firebase/firestore";
 import { db } from "./firebase";
 import { getDateKey } from "../utils/dateKey";
+
+/** ✅ Max cups per day (hard cap) */
+export const MAX_WATER_CUPS_PER_DAY = 7;
 
 /**
  * Water Targets (settings)
@@ -58,7 +54,10 @@ export function subscribeWaterTargets(
       }
       const data = snap.data() as Partial<WaterTargetsDoc>;
       onData({
-        goalMlPerDay: typeof data.goalMlPerDay === "number" ? data.goalMlPerDay : defaultWaterTargets.goalMlPerDay,
+        goalMlPerDay:
+          typeof data.goalMlPerDay === "number"
+            ? data.goalMlPerDay
+            : defaultWaterTargets.goalMlPerDay,
         mlPerCup: typeof data.mlPerCup === "number" ? data.mlPerCup : defaultWaterTargets.mlPerCup,
         updatedAt: data.updatedAt,
       });
@@ -130,7 +129,7 @@ export function subscribeWaterToday(
 }
 
 /**
- * Set today's cups to an exact value (clamped at >= 0).
+ * Set today's cups to an exact value (clamped at >= 0 and <= MAX_WATER_CUPS_PER_DAY).
  */
 export async function setTodayWaterCups(uid: string, cups: number) {
   const dateKey = getDateKey(new Date());
@@ -139,10 +138,12 @@ export async function setTodayWaterCups(uid: string, cups: number) {
   const safeCups =
     typeof cups === "number" && isFinite(cups) ? Math.max(0, Math.round(cups)) : 0;
 
+  const capped = Math.min(MAX_WATER_CUPS_PER_DAY, safeCups);
+
   await setDoc(
     ref,
     {
-      cups: safeCups,
+      cups: capped,
       updatedAt: serverTimestamp(),
     },
     { merge: true }
@@ -157,19 +158,16 @@ export async function incrementTodayWaterCups(uid: string, delta: number) {
   const dateKey = getDateKey(new Date());
   const ref = dailyRef(uid, dateKey);
 
-  const d =
-    typeof delta === "number" && isFinite(delta) ? Math.round(delta) : 0;
+  const d = typeof delta === "number" && isFinite(delta) ? Math.round(delta) : 0;
   if (d === 0) return;
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const current = snap.exists() ? Number((snap.data() as any).cups ?? 0) : 0;
-    const next = Math.max(0, current + d);
 
-    if (!snap.exists()) {
-      tx.set(ref, { cups: next, updatedAt: serverTimestamp() }, { merge: true });
-    } else {
-      tx.set(ref, { cups: next, updatedAt: serverTimestamp() }, { merge: true });
-    }
+    const nextRaw = current + d;
+    const next = Math.min(MAX_WATER_CUPS_PER_DAY, Math.max(0, nextRaw));
+
+    tx.set(ref, { cups: next, updatedAt: serverTimestamp() }, { merge: true });
   });
 }

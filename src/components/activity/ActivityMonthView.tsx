@@ -7,6 +7,12 @@ import { Card } from "../../components/ui/Card";
 import { COLORS } from "../../theme/colors";
 import type { DailySummaryDoc } from "../../services/firestoreDailySummary";
 
+/** ===== Today highlight color (GREEN) ===== */
+const TODAY_GREEN = "#22c55e"; // emerald green
+
+// ✅ threshold: over target by 100 -> danger
+const DANGER_OVER_BY = 100;
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -26,9 +32,11 @@ function clamp01(n: number) {
   return n;
 }
 
+/** ===== Progress Ring ===== */
 function DayRing(props: {
   progress: number; // 0..1
   rest?: boolean;
+  danger?: boolean; // ✅ NEW
   size?: number;
   stroke?: number;
 }) {
@@ -41,11 +49,23 @@ function DayRing(props: {
   const dashOffset = c * (1 - p);
 
   const track = COLORS.border;
-  const active = props.rest ? "#666666" : COLORS.primary;
+
+  const active = props.rest
+    ? "#666666"
+    : props.danger
+    ? COLORS.danger
+    : COLORS.primary;
 
   return (
     <Svg width={size} height={size}>
-      <Circle cx={size / 2} cy={size / 2} r={r} stroke={track} strokeWidth={stroke} fill="none" />
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        stroke={track}
+        strokeWidth={stroke}
+        fill="none"
+      />
       <Circle
         cx={size / 2}
         cy={size / 2}
@@ -97,7 +117,14 @@ export function ActivityMonthView(props: {
   const cells = useMemo(() => {
     const out: Array<
       | { type: "empty"; key: string }
-      | { type: "day"; key: string; date: Date; dateKey: string; day: number; summary: DailySummaryDoc | null }
+      | {
+          type: "day";
+          key: string;
+          date: Date;
+          dateKey: string;
+          day: number;
+          summary: DailySummaryDoc | null;
+        }
     > = [];
 
     for (let i = 0; i < firstDow; i++) out.push({ type: "empty", key: `e-${i}` });
@@ -122,7 +149,7 @@ export function ActivityMonthView(props: {
 
   return (
     <Card>
-      {/* Header row (prev / title / next) */}
+      {/* ===== Header ===== */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Pressable
           onPress={props.onPrevMonth}
@@ -197,11 +224,11 @@ export function ActivityMonthView(props: {
         ))}
       </View>
 
-      {/* grid */}
+      {/* ===== Grid ===== */}
       <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 10 }}>
         {cells.map((c) => {
           if (c.type === "empty") {
-            return <View key={c.key} style={{ width: "14.2857%", height: 56 }} />;
+            return <View key={c.key} style={{ width: "14.2857%", height: 64 }} />;
           }
 
           const s = c.summary;
@@ -209,35 +236,61 @@ export function ActivityMonthView(props: {
           const target = Number((s as any)?.burnTarget ?? 0);
           const rest = Boolean((s as any)?.restDay ?? false);
 
-          // ✅ progress based on burnedKcal / burnTarget
           const progress = target > 0 ? Math.min(burned / target, 1) : 0;
-
           const today = isSameDay(c.date, now);
+
+          const danger = !rest && target > 0 && burned >= target + DANGER_OVER_BY;
 
           return (
             <Pressable
               key={c.key}
               onPress={() => props.onSelectDay?.(c.dateKey)}
-              style={{ width: "14.2857%", height: 56, alignItems: "center", justifyContent: "center" }}
+              style={{
+                width: "14.2857%",
+                height: 64,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              <View
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 21,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: today ? 2 : 1,
-                  borderColor: today ? COLORS.primary : COLORS.border,
-                }}
-              >
-                <DayRing progress={progress} rest={rest} size={40} stroke={4} />
+              <View style={{ alignItems: "center" }}>
+                {/* ===== Today ring (GREEN) ===== */}
+                <View
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 23,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: today ? 2 : 1,
+                    borderColor: today ? TODAY_GREEN : COLORS.border,
+                  }}
+                >
+                  {/* Progress ring */}
+                  <DayRing progress={progress} rest={rest} danger={danger} size={40} stroke={4} />
 
-                <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 13 }}>
-                    {c.day}
-                  </Text>
+                  {/* Day number */}
+                  <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 13 }}>
+                      {c.day}
+                    </Text>
+                  </View>
                 </View>
+
+                {/* ===== Today dot (GREEN) ===== */}
+                {today ? (
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 99,
+                      marginTop: 6,
+                      backgroundColor: TODAY_GREEN,
+                      opacity: 0.95,
+                    }}
+                  />
+                ) : (
+                  <View style={{ height: 12 }} />
+                )}
               </View>
             </Pressable>
           );

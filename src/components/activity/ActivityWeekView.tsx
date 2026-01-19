@@ -29,6 +29,9 @@ export function ActivityWeekView(props: {
   // fixed track height in px
   const MAX_BAR_H = 170;
 
+  // ✅ threshold: over target by 100 -> danger
+  const DANGER_OVER_BY = 100;
+
   return (
     <Card>
       {/* ---------- Header ---------- */}
@@ -58,6 +61,11 @@ export function ActivityWeekView(props: {
             // progress ratio based on target (cap 100%)
             const ratio = burnTarget > 0 ? Math.min(burned / burnTarget, 1) : 0;
             const h = Math.max(0, Math.round(ratio * MAX_BAR_H)); // allow 0 (no progress)
+
+            const isDanger =
+              !rest && burnTarget > 0 && burned >= burnTarget + DANGER_OVER_BY;
+
+            const fillColor = rest ? "#666666" : isDanger ? COLORS.danger : COLORS.primary;
 
             return (
               <Pressable
@@ -91,7 +99,7 @@ export function ActivityWeekView(props: {
                     style={{
                       width: "100%",
                       height: h,
-                      backgroundColor: rest ? "#666666" : COLORS.primary,
+                      backgroundColor: fillColor,
                       borderRadius: 14,
                     }}
                   />

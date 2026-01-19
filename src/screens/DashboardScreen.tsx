@@ -1,33 +1,33 @@
+// src/screens/DashboardScreen.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Animated } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-
-import { useAuth } from "../services/AuthContext";
-import { useTodayNutrition } from "../hooks/useTodayNutrition";
-import { useStreakStats } from "../hooks/useStreakStats";
 
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
 import { COLORS } from "../theme/colors";
 
+import { useAuth } from "../services/AuthContext";
+import { useTodayNutrition } from "../hooks/useTodayNutrition";
+import { useStreakStats } from "../hooks/useStreakStats";
+
 import { ProgressRing } from "../components/ProgressRing";
 import { MacroRing } from "../components/MacroRing";
 import FloatingAddButton from "../components/FloatingAddButton";
 
-import { Ionicons } from "@expo/vector-icons";
+import WaterCard from "../components/WaterCard";
+import WaterSettingsModal from "../components/WaterSettingsModal";
 
 import carbIcon from "../../assets/icon/carbicon.png";
 import proteinIcon from "../../assets/icon/proteinicon.png";
 import fatIcon from "../../assets/icon/faticon.png";
 
-import WaterCard from "../components/WaterCard";
-import WaterSettingsModal from "../components/WaterSettingsModal";
-
 /* ---------- helpers ---------- */
 
-// Mon–Sun
 function dowLetterMonStart(date: Date) {
+  // NOTE: JS getDay(): 0=Sun..6=Sat
   const map = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return map[date.getDay()] ?? "";
 }
@@ -90,13 +90,16 @@ export default function DashboardScreen() {
   const tabBarHeight = useBottomTabBarHeight();
 
   const { goals, totals, progress } = useTodayNutrition(uid);
-
   const { currentSuccessStreak, bestFoodStreak, bestBurnStreak, last7 } =
     useStreakStats(uid, { fetchDays: 420 });
 
   const [waterModalOpen, setWaterModalOpen] = useState(false);
 
   const goGoals = () => navigation.navigate("NutritionGoals");
+
+  // ✅ Thresholds for “over goal → danger color”
+  const CAL_OVER_KCAL = 100; // Calories: over by 100kcal => danger
+  const MACRO_OVER_G = 10; // Macros: over by 10g => danger (ปรับได้)
 
   // ✅ ใช้สีเดียวกับ Calories today (CalToday)
   const ringColor = COLORS.primary;
@@ -151,6 +154,10 @@ export default function DashboardScreen() {
                 labelTop="Calories today"
                 centerValue={`${totals.totalCalories}`}
                 labelBottom={`Goal ${goals.calorieTarget}`}
+                // ✅ สำคัญ: ส่งค่าให้ ring ตัดสินใจ “เกินเป้า +100 => danger”
+                value={totals.totalCalories}
+                target={goals.calorieTarget}
+                dangerOverBy={CAL_OVER_KCAL}
               />
 
               <View style={{ height: 12 }} />
@@ -183,8 +190,11 @@ export default function DashboardScreen() {
                   title="Carb"
                   valueText={`${totals.totalCarbs}/${goals.carbTarget}g`}
                   progress={progress.carbPct}
-                  // ✅ ให้สีวงเหมือน CalToday
                   color={ringColor}
+                  // ✅ สำคัญ: ส่งค่าให้ ring ตัดสินใจ “เกินเป้า +10g => danger”
+                  value={totals.totalCarbs}
+                  target={goals.carbTarget}
+                  dangerOverBy={MACRO_OVER_G}
                 />
 
                 <MacroRing
@@ -192,8 +202,10 @@ export default function DashboardScreen() {
                   title="Protein"
                   valueText={`${totals.totalProtein}/${goals.proteinTarget}g`}
                   progress={progress.proteinPct}
-                  // ✅ ให้สีวงเหมือน CalToday
                   color={ringColor}
+                  value={totals.totalProtein}
+                  target={goals.proteinTarget}
+                  dangerOverBy={MACRO_OVER_G}
                 />
 
                 <MacroRing
@@ -201,8 +213,10 @@ export default function DashboardScreen() {
                   title="Fat"
                   valueText={`${totals.totalFat}/${goals.fatTarget}g`}
                   progress={progress.fatPct}
-                  // ✅ ให้สีวงเหมือน CalToday
                   color={ringColor}
+                  value={totals.totalFat}
+                  target={goals.fatTarget}
+                  dangerOverBy={MACRO_OVER_G}
                 />
               </View>
             </Card>
@@ -271,7 +285,7 @@ export default function DashboardScreen() {
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 {last7.map((d) => {
                   const today = isSameDay(d.date, new Date());
-                  const ringColor = d.restDay
+                  const dayRingColor = d.restDay
                     ? COLORS.border
                     : d.success
                     ? COLORS.primary
@@ -294,7 +308,7 @@ export default function DashboardScreen() {
                           height: 34,
                           borderRadius: 17,
                           borderWidth: today ? 3 : 2,
-                          borderColor: ringColor,
+                          borderColor: dayRingColor,
                           alignItems: "center",
                           justifyContent: "center",
                         }}
@@ -322,6 +336,40 @@ export default function DashboardScreen() {
                     </Pressable>
                   );
                 })}
+              </View>
+
+              {/* ✅ Tip ใต้ streak */}
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: COLORS.border,
+                  marginTop: 14,
+                  marginBottom: 12,
+                }}
+              />
+
+              <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={18}
+                  color={COLORS.subtext}
+                  style={{ marginTop: 1 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: COLORS.text, fontWeight: "900" }}>Streak tip</Text>
+                  <Text
+                    style={{
+                      color: COLORS.subtext,
+                      fontWeight: "800",
+                      marginTop: 4,
+                      lineHeight: 18,
+                    }}
+                  >
+                    Streak counts only if you reach your goals and stay within +100.
+                    {"\n"}• Calories: goal to goal + 100 kcal
+                    {"\n"}• Burn: goal to goal + 100 kcal
+                  </Text>
+                </View>
               </View>
             </Card>
           </AnimatedIn>

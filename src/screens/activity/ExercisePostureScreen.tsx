@@ -153,7 +153,7 @@ export default function ExercisePostureScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <View style={{ height: statusBarPad() }} />
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <Pressable

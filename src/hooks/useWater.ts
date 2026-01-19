@@ -8,6 +8,7 @@ import {
   setTodayWaterCups,
   incrementTodayWaterCups,
   type WaterTargetsDoc,
+  MAX_WATER_CUPS_PER_DAY,
 } from "../services/firestoreWater";
 
 function clamp01(n: number) {
@@ -69,31 +70,40 @@ export function useWater(uid: string | null): UseWaterResult {
     return unsub;
   }, [uid]);
 
+  const mlPerCup = useMemo(() => targets.mlPerCup || defaultWaterTargets.mlPerCup, [targets.mlPerCup]);
+
+  // ✅ goal cups ถูก cap ไม่เกิน 7
   const goalCups = useMemo(() => {
-    const mlPerCup = targets.mlPerCup || defaultWaterTargets.mlPerCup;
     const goalMl = targets.goalMlPerDay || defaultWaterTargets.goalMlPerDay;
-
     const cups = goalMl / mlPerCup;
-    // อย่างน้อย 1 แก้วต่อวันเสมอ
-    return Math.max(1, roundInt(cups));
-  }, [targets.goalMlPerDay, targets.mlPerCup]);
 
+    const rounded = Math.max(1, roundInt(cups));
+    return Math.min(MAX_WATER_CUPS_PER_DAY, rounded);
+  }, [targets.goalMlPerDay, mlPerCup]);
+
+  // ✅ goal ml ให้ “สอดคล้องกับ cap 7 แก้ว”
   const goalMl = useMemo(() => {
-    return (targets.goalMlPerDay || defaultWaterTargets.goalMlPerDay) | 0;
-  }, [targets.goalMlPerDay]);
+    return (goalCups * mlPerCup) | 0;
+  }, [goalCups, mlPerCup]);
+
+  // ✅ today cups ก็ clamp กันพลาดจากข้อมูลเก่า
+  const safeTodayCups = useMemo(() => {
+    const v = typeof todayCups === "number" && isFinite(todayCups) ? Math.max(0, Math.round(todayCups)) : 0;
+    return Math.min(MAX_WATER_CUPS_PER_DAY, v);
+  }, [todayCups]);
 
   const todayMl = useMemo(() => {
-    const mlPerCup = targets.mlPerCup || defaultWaterTargets.mlPerCup;
-    return (todayCups * mlPerCup) | 0;
-  }, [todayCups, targets.mlPerCup]);
+    return (safeTodayCups * mlPerCup) | 0;
+  }, [safeTodayCups, mlPerCup]);
 
   const progress01 = useMemo(() => {
     if (goalCups <= 0) return 0;
-    return clamp01(todayCups / goalCups);
-  }, [todayCups, goalCups]);
+    return clamp01(safeTodayCups / goalCups);
+  }, [safeTodayCups, goalCups]);
 
   const addCup = useCallback(async () => {
     if (!uid) return;
+    // ฝั่ง service จะ cap ให้อยู่แล้ว
     await incrementTodayWaterCups(uid, +1);
   }, [uid]);
 
@@ -105,7 +115,10 @@ export function useWater(uid: string | null): UseWaterResult {
   const setCups = useCallback(
     async (cups: number) => {
       if (!uid) return;
-      const safe = typeof cups === "number" && isFinite(cups) ? Math.max(0, Math.round(cups)) : 0;
+      const safe =
+        typeof cups === "number" && isFinite(cups)
+          ? Math.max(0, Math.min(MAX_WATER_CUPS_PER_DAY, Math.round(cups)))
+          : 0;
       await setTodayWaterCups(uid, safe);
     },
     [uid]
@@ -129,7 +142,7 @@ export function useWater(uid: string | null): UseWaterResult {
 
   return {
     targets,
-    todayCups,
+    todayCups: safeTodayCups,
     goalCups,
     todayMl,
     goalMl,

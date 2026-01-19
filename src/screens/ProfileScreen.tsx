@@ -8,6 +8,8 @@ import {
   Alert,
   Modal,
   FlatList,
+  TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -35,6 +37,15 @@ import {
   subscribeAchievements,
   type AchievementDoc,
 } from "../services/firestoreAchievements";
+
+/* ---------- Firebase Auth (for reset password + logout) ---------- */
+import {
+  signOut,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+} from "firebase/auth";
+import { auth } from "../services/firebase";
 
 /* ---------- icons (เหมือนที่ใช้ใน AchievementsScreen) ---------- */
 import burnIcon from "../../assets/iconachievements/burn.png";
@@ -639,6 +650,8 @@ function AchievementsCard({ uid }: { uid: string | null }) {
   );
 }
 
+/* ======================= MAIN SCREEN ======================= */
+
 export default function ProfileScreen() {
   const navigation = useNavigation<Nav>();
 
@@ -675,8 +688,7 @@ export default function ProfileScreen() {
 
   const bmi = useMemo(() => {
     if (!heightCm || !weightKg) return undefined;
-    if (!Number.isFinite(heightCm) || !Number.isFinite(weightKg))
-      return undefined;
+    if (!Number.isFinite(heightCm) || !Number.isFinite(weightKg)) return undefined;
     if (heightCm <= 0 || weightKg <= 0) return undefined;
     return calcBMI(Number(heightCm), Number(weightKg));
   }, [heightCm, weightKg]);
@@ -715,95 +727,273 @@ export default function ProfileScreen() {
   // IMPORTANT: prefer Firestore photoURL (what you update on edit profile)
   const avatarUrl = (profile as any)?.photoURL || user?.photoURL || "";
 
+  /* ================= Reset password (in-app) ================= */
+  const [pwModal, setPwModal] = useState(false);
+  const [pwBusy, setPwBusy] = useState(false);
+  const [curPw, setCurPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [newPw2, setNewPw2] = useState("");
+
+  const email = auth.currentUser?.email ?? null;
+
+  const hasPasswordProvider = useMemo(() => {
+    const providers = auth.currentUser?.providerData?.map((p) => p.providerId) ?? [];
+    return providers.includes("password");
+  }, []);
+
+  function openResetPassword() {
+    if (!auth.currentUser) {
+      Alert.alert("Error", "No signed-in user.");
+      return;
+    }
+    if (!email || !hasPasswordProvider) {
+      Alert.alert(
+        "Unavailable",
+        "This account does not use email/password sign-in, so password cannot be changed here."
+      );
+      return;
+    }
+    setPwModal(true);
+  }
+
+  async function submitResetPassword() {
+    if (pwBusy) return;
+
+    if (!auth.currentUser) {
+      Alert.alert("Error", "No signed-in user.");
+      return;
+    }
+    if (!email) {
+      Alert.alert("Error", "No email found for this account.");
+      return;
+    }
+    if (!curPw.trim()) {
+      Alert.alert("Missing", "Please enter your current password.");
+      return;
+    }
+    if (!newPw.trim()) {
+      Alert.alert("Missing", "Please enter a new password.");
+      return;
+    }
+    if (newPw.length < 6) {
+      Alert.alert("Weak password", "Password must be at least 6 characters.");
+      return;
+    }
+    if (newPw !== newPw2) {
+      Alert.alert("Mismatch", "New password and confirm password do not match.");
+      return;
+    }
+
+    setPwBusy(true);
+    try {
+      const cred = EmailAuthProvider.credential(email, curPw);
+      await reauthenticateWithCredential(auth.currentUser, cred);
+      await updatePassword(auth.currentUser, newPw);
+
+      setPwModal(false);
+      setCurPw("");
+      setNewPw("");
+      setNewPw2("");
+      Alert.alert("Success", "Password updated successfully.");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "Failed to update password.");
+    } finally {
+      setPwBusy(false);
+    }
+  }
+
+  function doLogout() {
+    Alert.alert("Log out", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth);
+          } catch (e: any) {
+            Alert.alert("Error", e?.message ?? "Failed to log out");
+          }
+        },
+      },
+    ]);
+  }
+
   return (
     <Screen>
       <ScrollView
         contentContainerStyle={{
           padding: 16,
-          paddingBottom: 120,
+          paddingBottom: 140,
           gap: 14,
         }}
       >
-        {/* ---------- Header (MATCH MOCKUP, avatar bigger) ---------- */}
+        {/* ---------- Header  ---------- */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            marginTop: 4,
+            paddingVertical: 14,
+            paddingHorizontal: 6,
             marginBottom: 6,
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          {/* Left: Avatar + Name */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            {/* Avatar */}
             {avatarUrl ? (
               <Image
                 key={avatarUrl}
                 source={{ uri: avatarUrl }}
                 style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  borderWidth: 2,
-                  borderColor: COLORS.primary,
+                  width: 72, // ใหญ่ขึ้น
+                  height: 72,
+                  borderRadius: 36,
+                  borderWidth: 3,
+                  borderColor: "#3b82f6",
                   backgroundColor: COLORS.surface,
                 }}
               />
             ) : (
               <View
                 style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  borderWidth: 2,
-                  borderColor: COLORS.primary,
+                  width: 72,
+                  height: 72,
+                  borderRadius: 36,
+                  borderWidth: 3,
+                  borderColor: "#3b82f6",
                   backgroundColor: COLORS.surface,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 18 }}>
+                <Text
+                  style={{
+                    color: COLORS.text,
+                    fontWeight: "900",
+                    fontSize: 26,
+                  }}
+                >
                   {displayName?.[0]?.toUpperCase() ?? "U"}
                 </Text>
               </View>
             )}
 
-            <View style={{ gap: 2 }}>
-              <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: "800" }}>
+            {/* Name + Member since */}
+            <View style={{ gap: 4 }}>
+              <Text
+                style={{
+                  color: COLORS.text,
+                  fontSize: 20,
+                  fontWeight: "900",
+                }}
+                numberOfLines={1}
+              >
                 {displayName}
               </Text>
-              <Text style={{ color: COLORS.subtext, fontSize: 11 }}>
+
+              <Text
+                style={{
+                  color: COLORS.subtext,
+                  fontSize: 13,
+                  fontWeight: "600",
+                }}
+              >
                 Member since {memberSince}
               </Text>
             </View>
           </View>
 
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="flame" size={20} color="#ff8c00" />
-            <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 14 }}>
+          {/* Right: Streak */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,80,0,0.12)",
+            }}
+          >
+            <Ionicons name="flame" size={28} color="#ff3b00" />
+            <Text
+              style={{
+                color: "#ff3b00",
+                fontWeight: "900",
+                fontSize: 18,
+              }}
+            >
               {currentSuccessStreak ?? 0}
             </Text>
           </View>
         </View>
 
-        {/* ---------- Edit Profile (small like mockup) ---------- */}
-        <Pressable
-          onPress={() => navigation.navigate("EditProfile")}
+        {/* ---------- Actions: Edit Profile + Health History (LARGE) ---------- */}
+        <View
           style={{
-            alignSelf: "flex-start",
             flexDirection: "row",
             alignItems: "center",
-            gap: 6,
-            paddingVertical: 6,
-            paddingHorizontal: 10,
-            borderRadius: 8,
-            backgroundColor: COLORS.primary,
+            gap: 12,
+            marginTop: 6,
+            marginBottom: 6,
           }}
         >
-          <Ionicons name="create-outline" size={14} color={COLORS.text} />
-          <Text style={{ color: COLORS.text, fontWeight: "800", fontSize: 12 }}>
-            Edit Profile
-          </Text>
-        </Pressable>
+          {/* Edit Profile */}
+          <Pressable
+            onPress={() => navigation.navigate("EditProfile")}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 14,
+              backgroundColor: COLORS.primary,
+              minHeight: 44,
+            }}
+          >
+            <Ionicons name="create-outline" size={18} color={COLORS.text} />
+            <Text
+              style={{
+                color: COLORS.text,
+                fontWeight: "900",
+                fontSize: 14,
+              }}
+            >
+              Edit Profile
+            </Text>
+          </Pressable>
+
+          {/* Health History */}
+          <Pressable
+            onPress={() => (navigation as any).navigate("HealthHistory")}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 14,
+              backgroundColor: COLORS.surface2,
+              borderWidth: 1.5,
+              borderColor: COLORS.border,
+              minHeight: 44,
+            }}
+          >
+            <Ionicons name="time-outline" size={18} color={COLORS.text} />
+            <Text
+              style={{
+                color: COLORS.text,
+                fontWeight: "900",
+                fontSize: 14,
+              }}
+            >
+              Health History
+            </Text>
+          </Pressable>
+        </View>
 
         {/* ---------- Stats Grid ---------- */}
         <View style={{ gap: 10, marginTop: 6 }}>
@@ -864,7 +1054,243 @@ export default function ProfileScreen() {
         {tab === "goals" ? <NutritionGoalsCard uid={uid} /> : null}
 
         {tab === "achievements" ? <AchievementsCard uid={uid} /> : null}
+
+        {/* ================= Privacy & Security (ADD) ================= */}
+        <View style={{ marginTop: 24 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 999,
+                backgroundColor: "rgba(34,197,94,0.15)",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 10,
+              }}
+            >
+              <Ionicons name="shield-checkmark" size={18} color="#22c55e" />
+            </View>
+
+            <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: "900" }}>
+              Privacy & Security
+            </Text>
+          </View>
+
+          {/* Reset Password (in-app) */}
+          <Pressable
+            onPress={openResetPassword}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              borderRadius: 18,
+              backgroundColor: COLORS.surface2,
+              borderWidth: 1.5,
+              borderColor: COLORS.primary,
+              marginBottom: 12,
+            }}
+          >
+            <Ionicons name="key-outline" size={20} color={COLORS.primary} />
+            <Text
+              style={{
+                flex: 1,
+                marginLeft: 12,
+                color: COLORS.text,
+                fontSize: 15,
+                fontWeight: "800",
+              }}
+            >
+              Reset Password
+            </Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.subtext} />
+          </Pressable>
+
+          {/* Log Out */}
+          <Pressable
+            onPress={doLogout}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              borderRadius: 18,
+              backgroundColor: COLORS.surface2,
+              borderWidth: 1.5,
+              borderColor: "#ef4444",
+            }}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+            <Text
+              style={{
+                flex: 1,
+                marginLeft: 12,
+                color: "#ef4444",
+                fontSize: 15,
+                fontWeight: "800",
+              }}
+            >
+              Log Out
+            </Text>
+            <Ionicons name="chevron-forward" size={20} color="#ef4444" />
+          </Pressable>
+        </View>
       </ScrollView>
+
+      {/* ================= Reset Password Modal ================= */}
+      <Modal visible={pwModal} transparent animationType="fade">
+        <Pressable
+          onPress={() => {
+            if (!pwBusy) {
+              setPwModal(false);
+              setCurPw("");
+              setNewPw("");
+              setNewPw2("");
+            }
+          }}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.6)",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 18,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: "900" }}>
+              Reset Password
+            </Text>
+            <Text style={{ color: COLORS.subtext, marginTop: 6, lineHeight: 18 }}>
+              Enter your current password, then set a new password.
+            </Text>
+
+            <View style={{ marginTop: 12, gap: 10 }}>
+              <View>
+                <Text style={{ color: COLORS.subtext, fontWeight: "800", marginBottom: 6 }}>
+                  Current password
+                </Text>
+                <TextInput
+                  value={curPw}
+                  onChangeText={setCurPw}
+                  placeholder="Current password"
+                  placeholderTextColor={COLORS.subtext}
+                  secureTextEntry
+                  editable={!pwBusy}
+                  style={{
+                    color: COLORS.text,
+                    paddingVertical: 12,
+                    paddingHorizontal: 12,
+                    borderRadius: 14,
+                    backgroundColor: COLORS.surface2,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                  }}
+                />
+              </View>
+
+              <View>
+                <Text style={{ color: COLORS.subtext, fontWeight: "800", marginBottom: 6 }}>
+                  New password
+                </Text>
+                <TextInput
+                  value={newPw}
+                  onChangeText={setNewPw}
+                  placeholder="New password (min 6 chars)"
+                  placeholderTextColor={COLORS.subtext}
+                  secureTextEntry
+                  editable={!pwBusy}
+                  style={{
+                    color: COLORS.text,
+                    paddingVertical: 12,
+                    paddingHorizontal: 12,
+                    borderRadius: 14,
+                    backgroundColor: COLORS.surface2,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                  }}
+                />
+              </View>
+
+              <View>
+                <Text style={{ color: COLORS.subtext, fontWeight: "800", marginBottom: 6 }}>
+                  Confirm new password
+                </Text>
+                <TextInput
+                  value={newPw2}
+                  onChangeText={setNewPw2}
+                  placeholder="Confirm new password"
+                  placeholderTextColor={COLORS.subtext}
+                  secureTextEntry
+                  editable={!pwBusy}
+                  style={{
+                    color: COLORS.text,
+                    paddingVertical: 12,
+                    paddingHorizontal: 12,
+                    borderRadius: 14,
+                    backgroundColor: COLORS.surface2,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                  }}
+                />
+              </View>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+              <Pressable
+                onPress={() => {
+                  if (!pwBusy) {
+                    setPwModal(false);
+                    setCurPw("");
+                    setNewPw("");
+                    setNewPw2("");
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: COLORS.surface2,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
+                disabled={pwBusy}
+              >
+                <Text style={{ color: COLORS.text, fontWeight: "900" }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => void submitResetPassword()}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: COLORS.primary,
+                }}
+                disabled={pwBusy}
+              >
+                {pwBusy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "#fff", fontWeight: "900" }}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }

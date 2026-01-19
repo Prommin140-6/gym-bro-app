@@ -1,6 +1,7 @@
-import React from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable, ScrollView, Modal, TextInput } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
+import { Ionicons } from "@expo/vector-icons";
 
 import { COLORS } from "../../theme/colors";
 import { Card } from "../../components/ui/Card";
@@ -37,23 +38,100 @@ export default function ActivityDayView(props: {
   onEdit?: (log: ActivityLog) => void;
   onDelete?: (id: string) => void;
 
+  onUpdateBurnTarget?: (value: number) => Promise<void>;
+  onUseAutoBurnTarget?: () => Promise<void>;
+
+  // ✅ show on UI
+  recommendedBurnTarget?: number;
+
   bottomSpacer?: number;
 }) {
   const pct = props.burnedToday / Math.max(1, props.burnTarget);
   const bottom = props.bottomSpacer ?? 120;
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [draftBurn, setDraftBurn] = useState(String(props.burnTarget || 0));
+  const [saving, setSaving] = useState(false);
+
+  const canEditGoal = Boolean(props.onUpdateBurnTarget || props.onUseAutoBurnTarget);
+
+  const openEdit = () => {
+    setDraftBurn(String(props.burnTarget || 0));
+    setEditOpen(true);
+  };
+
+  const closeEdit = () => setEditOpen(false);
+
+  const saveGoal = async () => {
+    const v = Number(draftBurn);
+    if (!Number.isFinite(v) || v <= 0) return;
+    if (!props.onUpdateBurnTarget) return;
+
+    try {
+      setSaving(true);
+      await props.onUpdateBurnTarget(v);
+      closeEdit();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const useRecommended = async () => {
+    if (!props.onUseAutoBurnTarget) return;
+
+    try {
+      setSaving(true);
+      await props.onUseAutoBurnTarget();
+      closeEdit();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const rec = Number(props.recommendedBurnTarget ?? 0);
+  const hasRec = Number.isFinite(rec) && rec > 0;
+  const recommendedLabel = hasRec ? `Recommended • ${rec} kcal` : "Recommended • ...";
 
   return (
     <ScrollView
       contentContainerStyle={{ gap: 14, paddingBottom: bottom }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Progress ring */}
-      <Card style={{ alignItems: "center", gap: 12 }}>
+      <Card style={{ alignItems: "center", gap: 12, position: "relative" }}>
+        {/* Edit icon (top-right) */}
+        <Pressable
+          onPress={openEdit}
+          disabled={!canEditGoal}
+          accessibilityRole="button"
+          accessibilityLabel="Edit burn goal"
+          hitSlop={12}
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            width: 38,
+            height: 38,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            backgroundColor: COLORS.surface2,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: canEditGoal ? 1 : 0.45,
+            zIndex: 50,
+          }}
+        >
+          <Ionicons name="create-outline" size={18} color={COLORS.text} />
+        </Pressable>
+
         <ProgressRing
           progress={pct}
           labelTop="burned today"
           centerValue={`${props.burnedToday}`}
           labelBottom={`today goal ${props.burnTarget}`}
+          value={props.burnedToday}
+          target={props.burnTarget}
+          dangerOverBy={100}
         />
 
         <View style={{ flexDirection: "row", width: "100%", justifyContent: "space-between" }}>
@@ -100,16 +178,106 @@ export default function ActivityDayView(props: {
             </View>
           ) : (
             props.activities.map((a) => (
-              <SwipeRow
-                key={a.id}
-                log={a}
-                onDelete={props.onDelete}
-                onEdit={props.onEdit}
-              />
+              <SwipeRow key={a.id} log={a} onDelete={props.onDelete} onEdit={props.onEdit} />
             ))
           )}
         </View>
       </Card>
+
+      {/* Edit goal modal */}
+      <Modal visible={editOpen} transparent animationType="fade" onRequestClose={closeEdit}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.35)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 22,
+          }}
+        >
+          <Card style={{ width: "100%", gap: 12 }}>
+            <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: "900" }}>
+              Edit burn goal
+            </Text>
+
+            <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>kcal per day</Text>
+
+            <TextInput
+              value={draftBurn}
+              onChangeText={(t) => setDraftBurn(t.replace(/[^\d]/g, ""))}
+              keyboardType="numeric"
+              placeholder="e.g. 350"
+              placeholderTextColor={COLORS.subtext}
+              style={{
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 12,
+                color: COLORS.text,
+                fontWeight: "900",
+                backgroundColor: COLORS.surface2,
+              }}
+            />
+
+            {/* ✅ Recommended (full width) — กดได้เสมอถ้ามี handler */}
+            <Pressable
+              onPress={useRecommended}
+              disabled={saving || !props.onUseAutoBurnTarget}
+              style={{
+                width: "100%",
+                paddingVertical: 12,
+                borderRadius: 12,
+                backgroundColor: COLORS.surface2,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                alignItems: "center",
+                opacity: saving || !props.onUseAutoBurnTarget ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: COLORS.text, fontWeight: "900" }}>{recommendedLabel}</Text>
+            </Pressable>
+
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Pressable
+                onPress={closeEdit}
+                disabled={saving}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: COLORS.surface2,
+                  alignItems: "center",
+                  opacity: saving ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ color: COLORS.text, fontWeight: "900" }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={saveGoal}
+                disabled={saving || !props.onUpdateBurnTarget}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: COLORS.primary,
+                  alignItems: "center",
+                  opacity: saving || !props.onUpdateBurnTarget ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ color: "white", fontWeight: "900" }}>
+                  {saving ? "Saving..." : "Save"}
+                </Text>
+              </Pressable>
+            </View>
+
+            <Text style={{ color: COLORS.subtext, fontSize: 12, fontWeight: "700" }}>
+              Recommended is calculated from your profile.
+            </Text>
+          </Card>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -149,11 +317,7 @@ function SwipeRow(props: {
   );
 
   return (
-    <Swipeable
-      enabled={Boolean(onDelete)}
-      renderRightActions={renderRight}
-      overshootRight={false}
-    >
+    <Swipeable enabled={Boolean(onDelete)} renderRightActions={renderRight} overshootRight={false}>
       <Pressable
         onPress={() => onEdit?.(log)}
         style={{

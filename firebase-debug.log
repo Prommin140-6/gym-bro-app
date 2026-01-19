@@ -1,0 +1,60 @@
+[debug] [2026-01-16T17:20:55.161Z] ----------------------------------------------------------------------
+[debug] [2026-01-16T17:20:55.170Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Kariwqq\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js init functions
+[debug] [2026-01-16T17:20:55.171Z] CLI Version:   13.31.1
+[debug] [2026-01-16T17:20:55.171Z] Platform:      win32
+[debug] [2026-01-16T17:20:55.171Z] Node Version:  v22.12.0
+[debug] [2026-01-16T17:20:55.171Z] Time:          Sat Jan 17 2026 00:20:55 GMT+0700 (เวลาอินโดจีน)
+[debug] [2026-01-16T17:20:55.171Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-01-16T17:20:55.175Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-01-16T17:20:55.222Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-01-16T17:20:55.222Z] > authorizing via signed-in user (prommin.i@kkumail.com)
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  C:\ProjectGymBro\gym-bro-app
+
+Before we get started, keep in mind:
+
+  * You are currently outside your home directory
+
+[debug] [2026-01-16T17:20:55.765Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-01-16T17:20:55.765Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[info] 
+=== Project Setup
+[info] 
+[info] First, let's associate this project directory with a Firebase project.
+[info] You can create multiple project aliases by running firebase use --add, 
+[info] but for now we'll just set up a default project.
+[info] 
+[debug] [2026-01-16T17:22:05.963Z] Checked if tokens are valid: false, expires at: 1739646050679
+[debug] [2026-01-16T17:22:05.964Z] Checked if tokens are valid: false, expires at: 1739646050679
+[debug] [2026-01-16T17:22:05.964Z] > refreshing access token with scopes: []
+[debug] [2026-01-16T17:22:05.965Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-01-16T17:22:05.965Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-01-16T17:22:06.077Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-01-16T17:22:06.077Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-01-16T17:22:06.077Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=100
+[debug] [2026-01-16T17:22:06.268Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 401
+[debug] [2026-01-16T17:22:06.268Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
+[debug] [2026-01-16T17:22:06.268Z] Got a 401 Unauthenticated error for a call that required authentication. Refreshing tokens.
+[debug] [2026-01-16T17:22:06.268Z] Checked if tokens are valid: false, expires at: 1739646050679
+[debug] [2026-01-16T17:22:06.268Z] Checked if tokens are valid: false, expires at: 1739646050679
+[debug] [2026-01-16T17:22:06.268Z] > refreshing access token with scopes: []
+[debug] [2026-01-16T17:22:06.269Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-01-16T17:22:06.269Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-01-16T17:22:06.319Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-01-16T17:22:06.320Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-01-16T17:22:06.320Z] Request to https://firebase.googleapis.com/v1beta1/projects?pageSize=100 had HTTP Error: 401, Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+[debug] [2026-01-16T17:22:06.418Z] FirebaseError: Request to https://firebase.googleapis.com/v1beta1/projects?pageSize=100 had HTTP Error: 401, Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+    at responseToError (C:\Users\Kariwqq\AppData\Roaming\npm\node_modules\firebase-tools\lib\responseToError.js:52:12)
+    at RetryOperation._fn (C:\Users\Kariwqq\AppData\Roaming\npm\node_modules\firebase-tools\lib\apiv2.js:312:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[error] 
+[error] Error: Failed to list Firebase projects. See firebase-debug.log for more info.

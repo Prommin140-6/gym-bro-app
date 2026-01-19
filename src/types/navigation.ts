@@ -35,6 +35,8 @@ export type ActivityStackParamList = {
 export type ProfileStackParamList = {
   ProfileHome: undefined;
   EditProfile: undefined;
+  HealthHistory: undefined;
+  HealthHistoryDay: { dateKey: string };
 };
 
 // ---------- Main Tabs ----------
