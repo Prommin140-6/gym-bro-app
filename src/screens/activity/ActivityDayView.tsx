@@ -228,14 +228,14 @@ export default function ActivityDayView(props: {
                 width: "100%",
                 paddingVertical: 12,
                 borderRadius: 12,
-                backgroundColor: COLORS.surface2,
+                backgroundColor: "rgba(43,228,167,0.08)",
                 borderWidth: 1,
-                borderColor: COLORS.border,
+                borderColor: COLORS.success,
                 alignItems: "center",
                 opacity: saving || !props.onUseAutoBurnTarget ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: COLORS.text, fontWeight: "900" }}>{recommendedLabel}</Text>
+              <Text style={{ color: COLORS.success, fontWeight: "900" }}>{recommendedLabel}</Text>
             </Pressable>
 
             <View style={{ flexDirection: "row", gap: 10 }}>

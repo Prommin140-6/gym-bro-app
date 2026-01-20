@@ -4,7 +4,10 @@ import { db } from "./firebase";
 import { getDateKey } from "../utils/dateKey";
 
 /** ✅ Max cups per day (hard cap) */
-export const MAX_WATER_CUPS_PER_DAY = 7;
+export const MAX_WATER_CUPS_PER_DAY = 15;
+
+/** ✅ Min cups per day (hard floor) */
+export const MIN_WATER_CUPS_PER_DAY = 7;
 
 /**
  * Water Targets (settings)

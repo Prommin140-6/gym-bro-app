@@ -64,6 +64,7 @@ export default function FoodDetailScreen({ route, navigation }: any) {
         protein_g: food.protein_g,
         fat_g: food.fat_g,
         servings,
+        imageUrl: food.imageUrl,
       });
 
       Alert.alert("Success", "Added to today's log!", [

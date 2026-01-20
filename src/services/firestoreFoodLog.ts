@@ -1,4 +1,4 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, deleteDoc, doc } from "firebase/firestore";
 import { db } from "./firebase";
 import { getDateKey } from "../utils/dateKey";
 import type { FoodRefType } from "../types/food";
@@ -19,6 +19,7 @@ export async function addFoodToTodayLog(params: {
   fat_g: number;
 
   servings: number;
+  imageUrl?: string | null;
 }) {
   const dateKey = getDateKey();
 
@@ -37,6 +38,7 @@ export async function addFoodToTodayLog(params: {
     carbs_g_snapshot: params.carbs_g,
     protein_g_snapshot: params.protein_g,
     fat_g_snapshot: params.fat_g,
+    imageUrl_snapshot: params.imageUrl ?? null,
 
     servings: params.servings,
 
@@ -49,4 +51,9 @@ export async function addFoodToTodayLog(params: {
 
     createdAt: serverTimestamp(),
   });
+}
+export async function deleteTodayFood(uid: string, foodLogId: string) {
+  const dateKey = getDateKey();
+  const ref = doc(db, "users", uid, "dailyLogs", dateKey, "foods", foodLogId);
+  await deleteDoc(ref);
 }

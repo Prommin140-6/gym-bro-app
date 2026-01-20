@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import { COLORS } from "../theme/colors";
 import { useWater } from "../hooks/useWater";
-import { MAX_WATER_CUPS_PER_DAY } from "../services/firestoreWater";
+import { MAX_WATER_CUPS_PER_DAY, MIN_WATER_CUPS_PER_DAY } from "../services/firestoreWater";
 
 type Props = {
   visible: boolean;
@@ -26,7 +26,7 @@ export default function WaterSettingsModal({ visible, onClose, uid }: Props) {
   const [cups, setCups] = useState<number>(water.goalCups);
 
   useEffect(() => {
-    if (visible) setCups(Math.min(MAX_WATER_CUPS_PER_DAY, water.goalCups));
+    if (visible) setCups(Math.max(MIN_WATER_CUPS_PER_DAY, Math.min(MAX_WATER_CUPS_PER_DAY, water.goalCups)));
   }, [visible, water.goalCups]);
 
   const mlPerCup = water.targets.mlPerCup || 250;
@@ -42,9 +42,9 @@ export default function WaterSettingsModal({ visible, onClose, uid }: Props) {
 
   const onReset = async () => {
     await water.resetTargets();
-    // default 2000ml -> แปลงเป็น cups แล้ว cap ไม่เกิน 7
+    // default 2000ml -> แปลงเป็น cups แล้ว cap ระหว่าง 7-15
     const defaultCups = Math.max(1, Math.round(2000 / mlPerCup));
-    setCups(Math.min(MAX_WATER_CUPS_PER_DAY, defaultCups));
+    setCups(Math.max(MIN_WATER_CUPS_PER_DAY, Math.min(MAX_WATER_CUPS_PER_DAY, defaultCups)));
   };
 
   const onSave = async () => {
@@ -88,14 +88,14 @@ export default function WaterSettingsModal({ visible, onClose, uid }: Props) {
           {/* Slider */}
           <View style={{ marginTop: 16 }}>
             <View style={styles.sliderRow}>
-              <Text style={styles.sliderMin}>1</Text>
+              <Text style={styles.sliderMin}>{MIN_WATER_CUPS_PER_DAY}</Text>
               <Text style={styles.sliderMax}>{MAX_WATER_CUPS_PER_DAY}</Text>
             </View>
 
             <Slider
               value={cups}
               onValueChange={(v) => setCups(Math.round(v))}
-              minimumValue={1}
+              minimumValue={MIN_WATER_CUPS_PER_DAY}
               maximumValue={MAX_WATER_CUPS_PER_DAY}
               step={1}
               minimumTrackTintColor={COLORS.primary}

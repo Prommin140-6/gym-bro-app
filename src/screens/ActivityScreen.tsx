@@ -52,7 +52,7 @@ export default function ActivityScreen() {
       ((profile as any).goalType ?? (profile as any).goal ?? "maintain_weight") as any;
 
     return { sex, age, heightCm, weightKg, exerciseStyle, goalType };
-  }, [profile]);
+  }, [profile.sex, profile.age, profile.heightCm, profile.height_cm, profile.weightKg, profile.weight_kg, profile.exerciseStyle, (profile as any).goalType, (profile as any).goal]);
 
   // ===== Targets =====
   const { burnTarget } = useBurnTarget(uid, burnProfile);

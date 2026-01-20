@@ -16,6 +16,7 @@ import { useStreakStats } from "../hooks/useStreakStats";
 import { ProgressRing } from "../components/ProgressRing";
 import { MacroRing } from "../components/MacroRing";
 import FloatingAddButton from "../components/FloatingAddButton";
+import { FoodLogCard } from "../components/FoodLogCard";
 
 import WaterCard from "../components/WaterCard";
 import WaterSettingsModal from "../components/WaterSettingsModal";
@@ -374,8 +375,13 @@ export default function DashboardScreen() {
             </Card>
           </AnimatedIn>
 
-          {/* Water card (below streak) */}
+          {/* Food log card */}
           <AnimatedIn index={3}>
+            <FoodLogCard uid={uid} />
+          </AnimatedIn>
+
+          {/* Water card (below streak) */}
+          <AnimatedIn index={4}>
             <WaterCard uid={uid} onPressSettings={() => setWaterModalOpen(true)} />
           </AnimatedIn>
         </ScrollView>

@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, Alert, Pressable } from "react-native";
+import { View, Text, Alert, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 import { useAuth } from "../services/AuthContext";
+import { useUserProfile } from "../hooks/useUserProfile";
 import {
   defaultGoals,
   subscribeGoals,
   upsertGoals,
   type GoalsDoc,
 } from "../services/firestoreGoals";
+import { calcTargets } from "../utils/targets";
 
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
@@ -26,6 +29,10 @@ export default function NutritionGoalsScreen() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const navigation = useNavigation<any>();
+  const tabBarHeight = useBottomTabBarHeight();
+
+  // ✅ Fetch user profile สำหรับคำนวณ recommendation
+  const { profile } = useUserProfile(uid);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,6 +64,40 @@ export default function NutritionGoalsScreen() {
       fat: toInt(fatTarget),
     };
   }, [calorieTarget, carbTarget, proteinTarget, fatTarget]);
+
+  // ✅ Calculate recommended targets from profile
+  const recommended = useMemo(() => {
+    if (!profile.sex || !profile.age) return null;
+
+    const sex = (profile.sex ?? "male") as any;
+    const age = Number(profile.age ?? 22);
+    const heightCm = Number(profile.heightCm ?? profile.height_cm ?? 170);
+    const weightKg = Number(profile.weightKg ?? profile.weight_kg ?? 66);
+    const exerciseStyle = ((profile as any).exerciseStyle ?? (profile as any).exercise_style ?? "not_exercise") as any;
+    const goalType =
+      ((profile as any).goalType ?? (profile as any).goal ?? "maintain_weight") as any;
+
+    try {
+      const targets = calcTargets({
+        sex,
+        age,
+        heightCm,
+        weightKg,
+        exerciseStyle,
+        goal: goalType,
+      });
+
+      return {
+        calorieTarget: targets.calorieTarget,
+        carbTarget: targets.carbTarget,
+        proteinTarget: targets.proteinTarget,
+        fatTarget: targets.fatTarget,
+      };
+    } catch (e) {
+      console.warn("[NutritionGoalsScreen] Calculate targets failed:", e);
+      return null;
+    }
+  }, [profile.sex, profile.age, profile.heightCm, profile.height_cm, profile.weightKg, profile.weight_kg, profile.exerciseStyle, profile.exercise_style, (profile as any).goalType, (profile as any).goal]);
 
   const validate = () => {
     if (parsed.calorie < 800 || parsed.calorie > 6000)
@@ -96,6 +137,28 @@ export default function NutritionGoalsScreen() {
     }
   };
 
+  // ✅ Apply recommended targets
+  const onApplyRecommended = () => {
+    if (!recommended) return;
+
+    Alert.alert(
+      "Use recommended",
+      `Calorie: ${recommended.calorieTarget} kcal\nCarbs: ${recommended.carbTarget}g\nProtein: ${recommended.proteinTarget}g\nFat: ${recommended.fatTarget}g`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Apply",
+          onPress: () => {
+            setCalorieTarget(String(recommended.calorieTarget));
+            setCarbTarget(String(recommended.carbTarget));
+            setProteinTarget(String(recommended.proteinTarget));
+            setFatTarget(String(recommended.fatTarget));
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <Screen>
@@ -107,10 +170,13 @@ export default function NutritionGoalsScreen() {
       </Screen>
     );
   }
-
   return (
     <Screen>
-      <View style={{ flex: 1, padding: 16, gap: 14 }}>
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1, padding: 16, gap: 14, paddingBottom: tabBarHeight + 150 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* 🔙 Back header */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Pressable
@@ -137,6 +203,77 @@ export default function NutritionGoalsScreen() {
         <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
           Adjust targets and Dashboard will update in realtime.
         </Text>
+
+        {/* ✅ Recommendation card */}
+        {recommended && (
+          <Card style={{ gap: 12, borderWidth: 1, borderColor: COLORS.success, backgroundColor: "rgba(43,228,167,0.08)" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="bulb-outline" size={20} color={COLORS.success} />
+              <Text style={{ color: COLORS.success, fontWeight: "900", fontSize: 14 }}>
+                Recommended
+              </Text>
+            </View>
+
+            <View
+              style={{
+                backgroundColor: "rgba(43,228,167,0.1)",
+                padding: 12,
+                borderRadius: 12,
+                gap: 6,
+              }}
+            >
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+                  Calorie target:
+                </Text>
+                <Text style={{ color: COLORS.success, fontWeight: "900" }}>
+                  {recommended.calorieTarget} kcal
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+                  Carbs:
+                </Text>
+                <Text style={{ color: COLORS.success, fontWeight: "900" }}>
+                  {recommended.carbTarget}g
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+                  Protein:
+                </Text>
+                <Text style={{ color: COLORS.success, fontWeight: "900" }}>
+                  {recommended.proteinTarget}g
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+                  Fat:
+                </Text>
+                <Text style={{ color: COLORS.success, fontWeight: "900" }}>
+                  {recommended.fatTarget}g
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={onApplyRecommended}
+              style={{
+                paddingVertical: 12,
+                borderRadius: 10,
+                backgroundColor: COLORS.success,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: COLORS.bg, fontWeight: "900", fontSize: 14 }}>
+                Use Recommended
+              </Text>
+            </Pressable>
+          </Card>
+        )}
 
         <Card style={{ gap: 12 }}>
           <TextField
@@ -186,7 +323,7 @@ export default function NutritionGoalsScreen() {
           onPress={onSave}
           disabled={saving}
         />
-      </View>
+      </ScrollView>
     </Screen>
   );
 }

@@ -9,6 +9,7 @@ import {
   incrementTodayWaterCups,
   type WaterTargetsDoc,
   MAX_WATER_CUPS_PER_DAY,
+  MIN_WATER_CUPS_PER_DAY,
 } from "../services/firestoreWater";
 
 function clamp01(n: number) {
@@ -72,13 +73,13 @@ export function useWater(uid: string | null): UseWaterResult {
 
   const mlPerCup = useMemo(() => targets.mlPerCup || defaultWaterTargets.mlPerCup, [targets.mlPerCup]);
 
-  // ✅ goal cups ถูก cap ไม่เกิน 7
+  // ✅ goal cups ถูก cap ระหว่าง 7-15 แก้ว
   const goalCups = useMemo(() => {
     const goalMl = targets.goalMlPerDay || defaultWaterTargets.goalMlPerDay;
     const cups = goalMl / mlPerCup;
 
     const rounded = Math.max(1, roundInt(cups));
-    return Math.min(MAX_WATER_CUPS_PER_DAY, rounded);
+    return Math.max(MIN_WATER_CUPS_PER_DAY, Math.min(MAX_WATER_CUPS_PER_DAY, rounded));
   }, [targets.goalMlPerDay, mlPerCup]);
 
   // ✅ goal ml ให้ “สอดคล้องกับ cap 7 แก้ว”

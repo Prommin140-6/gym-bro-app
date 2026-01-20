@@ -8,9 +8,11 @@ import {
   Image,
   Platform,
   Modal,
+  StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
@@ -66,6 +68,31 @@ const GOAL_OPTIONS = [
   { key: "maintain_weight", title: "Maintain Weight" },
   { key: "maintain_muscle", title: "Maintain Muscle" },
 ] as const;
+
+/* Default tab bar styles to restore */
+const defaultTabBarStyle = {
+  position: "absolute" as const,
+  left: 14,
+  right: 14,
+  bottom: 14,
+  height: 64,
+  borderRadius: 999,
+  backgroundColor: "#2f7cf6",
+  borderTopWidth: 0,
+  paddingHorizontal: 6,
+  paddingTop: 12,
+  paddingBottom: 6,
+  overflow: "hidden" as const,
+  ...Platform.select({
+    ios: {
+      shadowColor: "#000",
+      shadowOpacity: 0.18,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 6 },
+    },
+    android: { elevation: 10 },
+  }),
+};
 
 /* ---------------- UI helpers (local only; no impact elsewhere) ---------------- */
 
@@ -296,6 +323,22 @@ export default function EditProfileScreen({ navigation }: Props) {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const { profile, loading } = useUserProfile(uid);
+
+  // Hide tab bar when this screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      const parent = navigation.getParent();
+      parent?.setOptions({
+        tabBarStyle: { display: "none" },
+      });
+      return () => {
+        // Restore tab bar when leaving
+        parent?.setOptions({
+          tabBarStyle: defaultTabBarStyle,
+        });
+      };
+    }, [navigation])
+  );
 
   const initial = useMemo(() => {
     const weightKg = profile.weightKg ?? (profile as any).weight_kg;
