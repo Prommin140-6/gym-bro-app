@@ -7,9 +7,7 @@ const ALLOWED: FoodCategory[] = [
   "noodle",
   "salad",
   "soup",
-  "dessert",
-  "drink",
-  "snack",
+  "fruits",
   "other",
 ];
 
@@ -20,7 +18,7 @@ function asCategory(v: any): FoodCategory {
 
 export async function fetchPublicCatalog(limitCount = 100): Promise<FoodBase[]> {
   const q = query(
-    collection(db, "public_food_catalog"),
+    collection(db, "public_food_catalog_v2"),
     orderBy("createdAt", "desc"),
     limit(limitCount)
   );

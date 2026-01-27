@@ -20,9 +20,7 @@ const CATEGORY_LABEL: Record<FoodCategory, string> = {
   noodle: "Noodles",
   salad: "Salad",
   soup: "Soup",
-  dessert: "Dessert",
-  drink: "Drinks",
-  snack: "Snacks",
+  fruits: "Fruits",
   other: "Other",
 };
 
@@ -31,9 +29,7 @@ const CATEGORY_ORDER: FoodCategory[] = [
   "noodle",
   "salad",
   "soup",
-  "dessert",
-  "drink",
-  "snack",
+  "fruits",
   "other",
 ];
 

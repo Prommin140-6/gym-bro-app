@@ -5,10 +5,10 @@ export type FoodCategory =
   | "noodle"
   | "salad"
   | "soup"
-  | "dessert"
-  | "drink"
-  | "snack"
+  | "fruits"
   | "other";
+
+export type BowlSize = "small" | "regular" | "large";
 
 export type FoodBase = {
   id: string;
