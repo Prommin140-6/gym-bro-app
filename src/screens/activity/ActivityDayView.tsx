@@ -31,6 +31,7 @@ export default function ActivityDayView(props: {
   distanceKm: number;
 
   activities: ActivityLog[];
+  steps?: number;
 
   restDay?: boolean;
   onRestDay?: () => void;
@@ -137,7 +138,14 @@ export default function ActivityDayView(props: {
         <View style={{ flexDirection: "row", width: "100%", justifyContent: "space-between" }}>
           <MiniStat label="Burned" value={`${props.burnedToday} kcal`} />
           <MiniStat label="Distance" value={`${props.distanceKm} km`} />
-          <MiniStat label="Steps" value="coming soon" />
+          <MiniStat
+            label="Steps"
+            value={
+              props.steps !== undefined && props.steps !== null
+                ? props.steps.toLocaleString()
+                : "0"
+            }
+          />
         </View>
 
         <Pressable

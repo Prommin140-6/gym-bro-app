@@ -89,10 +89,14 @@ export function ActivityMonthView(props: {
   monthDocs: Record<string, DailySummaryDoc>;
   loading?: boolean;
   now?: Date;
+  unit?: string;
+  metricLabel?: string;
   onPrevMonth?: () => void;
   onNextMonth?: () => void;
   onSelectDay?: (dateKey: string) => void;
 }) {
+  const unit = props.unit ?? "kcal";
+  const metricLabel = props.metricLabel ?? "burned";
   const now = props.now ?? new Date();
 
   const monthStart = useMemo(() => {
@@ -194,9 +198,9 @@ export function ActivityMonthView(props: {
       </View>
 
       <Text style={{ color: COLORS.subtext, marginTop: 10, fontWeight: "800" }}>
-        total burned:{" "}
+        total {metricLabel}: {" "}
         <Text style={{ color: COLORS.text, fontWeight: "900" }}>
-          {Math.round(monthTotalBurned).toLocaleString()} kcal
+          {monthTotalBurned.toLocaleString()} {unit}
         </Text>
       </Text>
 

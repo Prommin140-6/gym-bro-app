@@ -22,9 +22,13 @@ export function ActivityWeekView(props: {
   weekTotalBurned: number;
   streak: number;
   now?: Date;
+  unit?: string; // e.g. "kcal" or "steps"
+  metricLabel?: string; // e.g. "burned" or "steps"
   onSelectDay?: (dateKey: string) => void;
 }) {
   const now = props.now ?? new Date();
+  const unit = props.unit ?? "kcal";
+  const metricLabel = props.metricLabel ?? "burned";
 
   // fixed track height in px
   const MAX_BAR_H = 170;
@@ -37,7 +41,7 @@ export function ActivityWeekView(props: {
       {/* ---------- Header ---------- */}
       <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>this week</Text>
       <Text style={{ color: COLORS.text, fontSize: 34, fontWeight: "900", marginTop: 4 }}>
-        {Math.round(props.weekTotalBurned).toLocaleString()}
+        {Math.round(props.weekTotalBurned).toLocaleString()} {unit}
       </Text>
 
       {/* ---------- Bar chart ---------- */}
@@ -129,29 +133,6 @@ export function ActivityWeekView(props: {
         </View>
       </View>
 
-      {/* ---------- Bottom stats ---------- */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 14 }}>
-        <View style={{ alignItems: "center", flex: 1 }}>
-          <Ionicons name="flame-outline" size={20} color={COLORS.subtext} />
-          <Text style={{ color: COLORS.text, fontWeight: "900", marginTop: 4 }}>
-            {Math.round(props.weekTotalBurned)} kcal
-          </Text>
-        </View>
-
-        <View style={{ alignItems: "center", flex: 1 }}>
-          <Ionicons name="arrow-forward-outline" size={18} color={COLORS.subtext} />
-          <Text style={{ color: COLORS.subtext, fontWeight: "900", marginTop: 4 }}>
-            coming soon
-          </Text>
-        </View>
-
-        <View style={{ alignItems: "center", flex: 1 }}>
-          <Ionicons name="flame-outline" size={20} color={COLORS.subtext} />
-          <Text style={{ color: COLORS.text, fontWeight: "900", marginTop: 4 }}>
-            streak {props.streak}
-          </Text>
-        </View>
-      </View>
     </Card>
   );
 }

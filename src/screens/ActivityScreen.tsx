@@ -1,8 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, Alert, ScrollView } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import {
+  getSdkStatus,
+  initialize,
+  requestPermission,
+  readRecords,
+  SdkAvailabilityStatus,
+} from "react-native-health-connect";
 
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
@@ -13,6 +20,7 @@ import { useUserProfile } from "../hooks/useUserProfile";
 import { useBurnTarget } from "../hooks/useBurnTarget";
 import { useActivityToday } from "../hooks/useActivityToday";
 import { useTodayNutrition } from "../hooks/useTodayNutrition";
+import type { DailySummaryDoc } from "../services/firestoreDailySummary";
 
 import { upsertTodayDailySummary } from "../services/firestoreDailySummary";
 import { deleteTodayActivity } from "../services/firestoreActivity";
@@ -34,6 +42,166 @@ export default function ActivityScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const uid = user?.uid ?? null;
+
+  const [stepsToday, setStepsToday] = useState<number>(0);
+  const [stepsByDay, setStepsByDay] = useState<Record<string, number>>({});
+  const [stepsLoading, setStepsLoading] = useState(false);
+  const [stepsError, setStepsError] = useState<string | null>(null);
+
+  const STEPS_RECORD_TYPE = "Steps" as const;
+
+  const toDayKey = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const getDayRange = (key: string) => {
+    const [year, month, day] = key.split("-").map(Number);
+    const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const end = new Date(year, month - 1, day, 23, 59, 59, 999);
+    return {
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+    };
+  };
+
+  const getRange = (start: Date, end: Date) => {
+    const s = new Date(start);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(end);
+    e.setHours(23, 59, 59, 999);
+    return {
+      startTime: s.toISOString(),
+      endTime: e.toISOString(),
+    };
+  };
+
+  const getTodayRange = () => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    return {
+      startTime: start.toISOString(),
+      endTime: now.toISOString(),
+    };
+  };
+
+  const loadStepsToday = useCallback(async () => {
+    setStepsError(null);
+    setStepsLoading(true);
+
+    try {
+      const sdkStatus = await getSdkStatus();
+      if (sdkStatus !== SdkAvailabilityStatus.SDK_AVAILABLE) {
+        setStepsError("Health Connect is not available");
+        return;
+      }
+
+      const initialized = await initialize();
+      if (!initialized) {
+        setStepsError("Unable to initialize Health Connect");
+        return;
+      }
+
+      const granted = await requestPermission([
+        { accessType: "read", recordType: STEPS_RECORD_TYPE },
+      ]);
+
+      const hasStepsPermission = granted.some(
+        (p) => p.recordType === STEPS_RECORD_TYPE && p.accessType === "read",
+      );
+
+      if (!hasStepsPermission) {
+        setStepsError("Permission denied for steps");
+        return;
+      }
+
+      const todayRange = getTodayRange();
+      const result = await readRecords(STEPS_RECORD_TYPE, {
+        timeRangeFilter: {
+          operator: "between",
+          startTime: todayRange.startTime,
+          endTime: todayRange.endTime,
+        },
+      });
+
+      const key = toDayKey(new Date());
+      const total = result.records.reduce((sum, r) => sum + (r.count ?? 0), 0);
+      setStepsToday(total);
+      setStepsByDay((prev) => ({ ...prev, [key]: total }));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      setStepsError(message);
+    } finally {
+      setStepsLoading(false);
+    }
+  }, []);
+
+  const loadStepsForRange = useCallback(
+    async (start: Date, end: Date) => {
+      setStepsError(null);
+      setStepsLoading(true);
+
+      try {
+        const sdkStatus = await getSdkStatus();
+        if (sdkStatus !== SdkAvailabilityStatus.SDK_AVAILABLE) {
+          setStepsError("Health Connect is not available");
+          return;
+        }
+
+        const initialized = await initialize();
+        if (!initialized) {
+          setStepsError("Unable to initialize Health Connect");
+          return;
+        }
+
+        const granted = await requestPermission([
+          { accessType: "read", recordType: STEPS_RECORD_TYPE },
+        ]);
+
+        const hasStepsPermission = granted.some(
+          (p) => p.recordType === STEPS_RECORD_TYPE && p.accessType === "read",
+        );
+
+        if (!hasStepsPermission) {
+          setStepsError("Permission denied for steps");
+          return;
+        }
+
+        const range = getRange(start, end);
+        const result = await readRecords(STEPS_RECORD_TYPE, {
+          timeRangeFilter: {
+            operator: "between",
+            startTime: range.startTime,
+            endTime: range.endTime,
+          },
+        });
+
+        const grouped: Record<string, number> = {};
+        result.records.forEach((r) => {
+          const dayKey = toDayKey(new Date(r.startTime));
+          grouped[dayKey] = (grouped[dayKey] ?? 0) + (r.count ?? 0);
+        });
+
+        setStepsByDay((prev) => ({ ...prev, ...grouped }));
+
+        const todayKey = toDayKey(new Date());
+        setStepsToday(grouped[todayKey] ?? 0);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Unknown error";
+        setStepsError(message);
+      } finally {
+        setStepsLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    loadStepsToday();
+  }, [loadStepsToday]);
 
   const [tab, setTab] = useState<TabKey>("day");
 
@@ -82,9 +250,60 @@ export default function ActivityScreen() {
   // ===== Week =====
   const { weekDays, weekTotalBurned, streak } = useActivityPeriod(uid);
 
+  const weekDaysWithStepBurn = useMemo(() => {
+    return weekDays.map((d) => {
+      const steps = stepsByDay[d.dateKey] ?? 0;
+      const burned = Number(d.summary?.totalBurnedCalories ?? 0);
+      const burnedWithSteps = burned + Math.round(steps * 0.05);
+      return {
+        ...d,
+        summary: d.summary
+          ? ({
+              ...d.summary,
+              totalBurnedCalories: burnedWithSteps,
+            } as DailySummaryDoc)
+          : null,
+      };
+    });
+  }, [weekDays, stepsByDay]);
+
+  const weekTotalBurnedWithSteps = useMemo(() => {
+    return weekDaysWithStepBurn.reduce((sum, d) => {
+      const v = Number(d.summary?.totalBurnedCalories ?? 0);
+      return sum + (Number.isFinite(v) ? v : 0);
+    }, 0);
+  }, [weekDaysWithStepBurn]);
+
   // ===== Month (M3) =====
   const [monthBase, setMonthBase] = useState(() => new Date());
   const { loadingMonth, monthDocs } = useActivityMonth(uid, monthBase);
+
+  const monthDocsWithStepBurn = useMemo(() => {
+    const out: Record<string, DailySummaryDoc> = {};
+    Object.entries(monthDocs).forEach(([key, doc]) => {
+      const steps = stepsByDay[key] ?? 0;
+      const burned = Number(doc.totalBurnedCalories ?? 0);
+      out[key] = {
+        ...doc,
+        totalBurnedCalories: burned + Math.round(steps * 0.05),
+      };
+    });
+    return out;
+  }, [monthDocs, stepsByDay]);
+
+  useEffect(() => {
+    if (tab === "week" && weekDays.length > 0) {
+      const start = weekDays[0].date;
+      const end = weekDays[weekDays.length - 1].date;
+      loadStepsForRange(start, end);
+    }
+
+    if (tab === "month") {
+      const start = new Date(monthBase.getFullYear(), monthBase.getMonth(), 1);
+      const end = new Date(monthBase.getFullYear(), monthBase.getMonth() + 1, 0);
+      loadStepsForRange(start, end);
+    }
+  }, [tab, weekDays, monthBase, loadStepsForRange]);
 
   // ===== Rest day toggle =====
   const onToggleRestDay = async () => {
@@ -178,6 +397,9 @@ export default function ActivityScreen() {
     if (!uid) return;
 
     const burned = Number(totals.totalBurned ?? 0);
+    const burnedFromSteps = Math.round(stepsToday * 0.05); // ~50 kcal per 1,000 steps
+    const burnedWithSteps = burned + burnedFromSteps;
+
     const distanceKm = Number(totals.totalDistanceKm ?? 0);
     const eatenCalories = Number(nutritionTotals.totalCalories ?? 0);
 
@@ -186,13 +408,12 @@ export default function ActivityScreen() {
 
     const OVER_LIMIT = 100;
 
-    const burnSuccess = burned >= burnT && burned <= burnT + OVER_LIMIT;
+    const burnSuccess = burnedWithSteps >= burnT && burnedWithSteps <= burnT + OVER_LIMIT;
     const calorieSuccess = eatenCalories >= calT && eatenCalories <= calT + OVER_LIMIT;
     const success = restDay ? false : burnSuccess && calorieSuccess;
 
-
     const sig = JSON.stringify({
-      burned,
+      burned: burnedWithSteps,
       distanceKm,
       eatenCalories,
       burnT,
@@ -207,7 +428,7 @@ export default function ActivityScreen() {
     lastSig.current = sig;
 
     upsertTodayDailySummary(uid, {
-      totalBurnedCalories: burned,
+      totalBurnedCalories: burnedWithSteps,
       totalDistanceKm: distanceKm,
       eatenCalories,
       burnTarget: burnT,
@@ -216,7 +437,7 @@ export default function ActivityScreen() {
       burnSuccess,
       calorieSuccess,
       success,
-    }).catch(() => { });
+    }).catch(() => {});
   }, [
     uid,
     totals.totalBurned,
@@ -225,6 +446,7 @@ export default function ActivityScreen() {
     nutritionGoals.calorieTarget,
     burnTarget,
     restDay,
+    stepsToday,
   ]);
 
   const bottomPad = 140;
@@ -308,10 +530,13 @@ export default function ActivityScreen() {
         {tab === "day" && (
           <ScrollView contentContainerStyle={{ paddingBottom: bottomPad }}>
             <ActivityDayView
-              loading={loading || loadingProfile}
-              burnedToday={Number(totals.totalBurned ?? 0)}
+              loading={loading || loadingProfile || stepsLoading}
+              burnedToday={
+                Math.round(Number(totals.totalBurned ?? 0) + Math.round(stepsToday * 0.05))
+              }
               burnTarget={Number(burnTarget ?? 0)}
-              distanceKm={Number(totals.totalDistanceKm ?? 0)}
+              distanceKm={Math.round(stepsToday * 0.0008 * 100) / 100}
+              steps={stepsToday}
               activities={activities}
               restDay={restDay}
               onRestDay={onToggleRestDay}
@@ -326,10 +551,15 @@ export default function ActivityScreen() {
         {tab === "week" && (
           <ScrollView contentContainerStyle={{ paddingBottom: bottomPad }}>
             <ActivityWeekView
-              weekDays={weekDays}
-              weekTotalBurned={weekTotalBurned}
+              weekDays={weekDaysWithStepBurn}
+              weekTotalBurned={weekTotalBurnedWithSteps}
               streak={streak}
-              onSelectDay={(dateKey) => navigation.navigate("ActivityDayDetail", { dateKey })}
+              onSelectDay={(dateKey) =>
+                navigation.navigate("ActivityDayDetail", {
+                  dateKey,
+                  initialSteps: stepsByDay[dateKey],
+                })
+              }
             />
           </ScrollView>
         )}
@@ -339,10 +569,15 @@ export default function ActivityScreen() {
             <ActivityMonthView
               baseDate={monthBase}
               loading={loadingMonth}
-              monthDocs={monthDocs}
+              monthDocs={monthDocsWithStepBurn}
               onPrevMonth={() => setMonthBase((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
               onNextMonth={() => setMonthBase((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-              onSelectDay={(dateKey) => navigation.navigate("ActivityDayDetail", { dateKey })}
+              onSelectDay={(dateKey) =>
+                navigation.navigate("ActivityDayDetail", {
+                  dateKey,
+                  initialSteps: stepsByDay[dateKey],
+                })
+              }
             />
           </ScrollView>
         )}

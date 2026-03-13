@@ -18,6 +18,8 @@ export function useActivityByDateKey(uid: string | null, dateKey: string | null)
     }
 
     setLoading(true);
+    setActivities([]);
+    setDailySummary(defaultDailySummary);
 
     const unsub1 = subscribeActivitiesByDateKey(uid, dateKey, (logs) => {
       setActivities(logs);

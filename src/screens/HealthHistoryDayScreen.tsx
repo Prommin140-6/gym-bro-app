@@ -3,6 +3,14 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import {
+  getSdkStatus,
+  initialize,
+  openHealthConnectSettings,
+  requestPermission,
+  readRecords,
+  SdkAvailabilityStatus,
+} from "react-native-health-connect";
 
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
@@ -68,6 +76,37 @@ function parseDateKeyToLabel(dateKey: string) {
     return dateKey;
   }
 }
+
+const STEPS_RECORD_TYPE = "Steps" as const;
+
+const toDayKey = (date: Date) => {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
+
+const getDayRange = (key: string) => {
+  let year = 0;
+  let month = 0;
+  let day = 0;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+    [year, month, day] = key.split("-").map(Number);
+  } else if (/^\d{8}$/.test(key)) {
+    year = Number(key.slice(0, 4));
+    month = Number(key.slice(4, 6));
+    day = Number(key.slice(6, 8));
+  }
+
+  const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+  const end = new Date(year, month - 1, day, 23, 59, 59, 999);
+  return {
+    startTime: start.toISOString(),
+    endTime: end.toISOString(),
+  };
+};
 
 function formatInt(n: number) {
   const v = Number.isFinite(n) ? Math.round(n) : 0;
@@ -217,6 +256,10 @@ export default function HealthHistoryDayScreen() {
 
   const [openKey, setOpenKey] = useState<"cal" | "steps" | "burn" | null>("cal");
 
+  const [stepsToday, setStepsToday] = useState(0);
+  const [stepsLoading, setStepsLoading] = useState(false);
+  const [stepsError, setStepsError] = useState<string | null>(null);
+
   // ===== Daily summary =====
   const [summary, setSummary] = useState<DailySummaryDoc>(defaultDailySummary);
 
@@ -271,6 +314,66 @@ export default function HealthHistoryDayScreen() {
     });
   }, [uid, dateKey]);
 
+  useEffect(() => {
+    if (!dateKey) return;
+
+    const loadSteps = async () => {
+      setStepsError(null);
+      setStepsLoading(true);
+
+      try {
+        const sdkStatus = await getSdkStatus();
+
+        if (sdkStatus !== SdkAvailabilityStatus.SDK_AVAILABLE) {
+          setStepsError("Health Connect is not installed or ready. Please install/update Health Connect.");
+          return;
+        }
+
+        const initialized = await initialize();
+        if (!initialized) {
+          setStepsError("Unable to initialize Health Connect. Please try again.");
+          return;
+        }
+
+        const granted = await requestPermission([
+          { accessType: "read", recordType: STEPS_RECORD_TYPE },
+        ]);
+
+        const hasStepsPermission = granted.some(
+          (p) => p.recordType === STEPS_RECORD_TYPE && p.accessType === "read",
+        );
+
+        if (!hasStepsPermission) {
+          setStepsError("Please grant permission to read steps from Health Connect.");
+          return;
+        }
+
+        const range = getDayRange(dateKey);
+        const result = await readRecords(STEPS_RECORD_TYPE, {
+          timeRangeFilter: {
+            operator: "between",
+            startTime: range.startTime,
+            endTime: range.endTime,
+          },
+        });
+
+        let totalSteps = 0;
+        result.records.forEach((record) => {
+          totalSteps += record.count ?? 0;
+        });
+
+        setStepsToday(totalSteps);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Unknown error";
+        setStepsError(message);
+      } finally {
+        setStepsLoading(false);
+      }
+    };
+
+    loadSteps();
+  }, [dateKey]);
+
   // values
   const burned = Number(summary.totalBurnedCalories ?? 0);
   const burnTarget = Number(summary.burnTarget ?? 0);
@@ -280,9 +383,9 @@ export default function HealthHistoryDayScreen() {
 
   const distanceKm = Number(summary.totalDistanceKm ?? 0);
 
-  // NOTE: steps ยังไม่มีใน schema ที่ส่งมา → ใช้ 0 ไปก่อน (แต่ UI พร้อม)
-  const stepsToday = 0;
   const stepsTarget = 10000;
+  const distanceFromStepsKm = Math.round(stepsToday * 0.0008 * 100) / 100;
+  const distanceKmToShow = stepsToday > 0 ? distanceFromStepsKm : distanceKm;
 
   const dateLabel = useMemo(() => parseDateKeyToLabel(String(dateKey ?? "")), [dateKey]);
 
@@ -370,14 +473,32 @@ export default function HealthHistoryDayScreen() {
                 <View style={styles.kpiBox}>
                   <Text style={styles.kpiLabel}>Distance</Text>
                   <Text style={styles.kpiValue}>
-                    {Number.isFinite(distanceKm) ? distanceKm.toFixed(2) : "0.00"} km
+                    {Number.isFinite(distanceKmToShow) ? distanceKmToShow.toFixed(2) : "0.00"} km
                   </Text>
                 </View>
               </View>
 
               <View style={styles.divider} />
 
-              <Text style={styles.bodyHint}>No step logs for this day.</Text>
+              {stepsLoading ? (
+                <Text style={styles.bodyHint}>Loading step data…</Text>
+              ) : stepsError ? (
+                <View style={{ gap: 6 }}>
+                  <Text style={styles.bodyHint}>{stepsError}</Text>
+                  {stepsError.includes("Health Connect") ? (
+                    <Pressable
+                      onPress={() => openHealthConnectSettings()}
+                      style={{ padding: 10, borderRadius: 12, backgroundColor: COLORS.surface2 }}
+                    >
+                      <Text style={{ color: COLORS.primary, fontWeight: "700" }}>
+                        Open Health Connect
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : stepsToday === 0 ? (
+                <Text style={styles.bodyHint}>No step logs for this day.</Text>
+              ) : null}
             </View>
           </SectionCard>
 

@@ -31,6 +31,13 @@ import { useActivityToday } from "../hooks/useActivityToday";
 import { useWater } from "../hooks/useWater";
 import { useBurnTarget } from "../hooks/useBurnTarget";
 import { useTodayNutrition } from "../hooks/useTodayNutrition";
+import {
+  getSdkStatus,
+  initialize,
+  requestPermission,
+  readRecords,
+  SdkAvailabilityStatus,
+} from "react-native-health-connect";
 
 import {
   ACHIEVEMENT_DEFS,
@@ -78,6 +85,26 @@ function clamp01(n: number) {
   if (n > 1) return 1;
   return n;
 }
+
+const STEPS_RECORD_TYPE = "Steps" as const;
+
+const toDayKey = (date: Date) => {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
+
+const getDayRange = (key: string) => {
+  const [year, month, day] = key.split("-").map(Number);
+  const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+  const end = new Date(year, month - 1, day, 23, 59, 59, 999);
+  return {
+    startTime: start.toISOString(),
+    endTime: end.toISOString(),
+  };
+};
 
 function formatUnlockedAt(v: any) {
   try {
@@ -237,12 +264,78 @@ function TodayProgressCard({
   const { burnTarget } = useBurnTarget(uid, burnProfile);
   const water = useWater(uid);
 
-  // Steps: ในโปรเจกต์ตอนนี้ยังไม่มี data จริง
-  const stepsToday = 0;
+  const [stepsToday, setStepsToday] = useState(0);
+  const [stepsLoading, setStepsLoading] = useState(false);
+  const [stepsError, setStepsError] = useState<string | null>(null);
+
   const stepsTarget = 10000;
 
+  const burnedFromSteps = Math.round(stepsToday * 0.05);
+  const burnedTotal = Number(totals.totalBurned ?? 0) + burnedFromSteps;
+
   const stepsPct = stepsTarget > 0 ? stepsToday / stepsTarget : 0;
-  const burnPct = burnTarget > 0 ? totals.totalBurned / burnTarget : 0;
+  const burnPct = burnTarget > 0 ? burnedTotal / burnTarget : 0;
+
+  useEffect(() => {
+    if (!uid) return;
+
+    const loadSteps = async () => {
+      setStepsError(null);
+      setStepsLoading(true);
+
+      try {
+        const sdkStatus = await getSdkStatus();
+
+        if (sdkStatus !== SdkAvailabilityStatus.SDK_AVAILABLE) {
+          setStepsError("Health Connect is not installed or ready. Please install/update Health Connect.");
+          return;
+        }
+
+        const initialized = await initialize();
+        if (!initialized) {
+          setStepsError("Unable to initialize Health Connect. Please try again.");
+          return;
+        }
+
+        const granted = await requestPermission([
+          { accessType: "read", recordType: STEPS_RECORD_TYPE },
+        ]);
+
+        const hasStepsPermission = granted.some(
+          (p) => p.recordType === STEPS_RECORD_TYPE && p.accessType === "read",
+        );
+
+        if (!hasStepsPermission) {
+          setStepsError("Please grant permission to read steps from Health Connect.");
+          return;
+        }
+
+        const todayKey = toDayKey(new Date());
+        const range = getDayRange(todayKey);
+        const result = await readRecords(STEPS_RECORD_TYPE, {
+          timeRangeFilter: {
+            operator: "between",
+            startTime: range.startTime,
+            endTime: range.endTime,
+          },
+        });
+
+        let totalSteps = 0;
+        result.records.forEach((record) => {
+          totalSteps += record.count ?? 0;
+        });
+
+        setStepsToday(totalSteps);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Unknown error";
+        setStepsError(message);
+      } finally {
+        setStepsLoading(false);
+      }
+    };
+
+    loadSteps();
+  }, [uid]);
 
   return (
     <Card style={{ paddingVertical: 14 }}>
@@ -259,7 +352,13 @@ function TodayProgressCard({
         <ProgressRow
           icon="footsteps-outline"
           label="Steps"
-          rightText={`${stepsToday.toLocaleString()} / ${stepsTarget.toLocaleString()} steps`}
+          rightText={
+            stepsLoading
+              ? "Loading…"
+              : stepsError
+              ? "Permission needed"
+              : `${stepsToday.toLocaleString()} / ${stepsTarget.toLocaleString()} steps`
+          }
           progress01={stepsPct}
           color="#4da3ff"
         />
@@ -267,7 +366,7 @@ function TodayProgressCard({
         <ProgressRow
           icon="flame-outline"
           label="Calories Burned"
-          rightText={`${totals.totalBurned} / ${Math.round(burnTarget)} kcal`}
+          rightText={`${burnedTotal} / ${Math.round(burnTarget)} kcal`}
           progress01={burnPct}
           color="#22c55e"
         />
