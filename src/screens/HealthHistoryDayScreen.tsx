@@ -124,15 +124,15 @@ function SoftPill({
     tone === "good"
       ? "rgba(34,197,94,0.14)"
       : tone === "warn"
-      ? "rgba(245,158,11,0.14)"
-      : "rgba(255,255,255,0.08)";
+        ? "rgba(245,158,11,0.14)"
+        : "rgba(255,255,255,0.08)";
 
   const bd =
     tone === "good"
       ? "rgba(34,197,94,0.22)"
       : tone === "warn"
-      ? "rgba(245,158,11,0.22)"
-      : "rgba(255,255,255,0.12)";
+        ? "rgba(245,158,11,0.22)"
+        : "rgba(255,255,255,0.12)";
 
   const tx = tone === "good" ? "#9FF2B7" : tone === "warn" ? "#FFD39A" : COLORS.subtext;
 
@@ -254,7 +254,7 @@ export default function HealthHistoryDayScreen() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
-  const [openKey, setOpenKey] = useState<"cal" | "steps" | "burn" | null>("cal");
+  const [openKey, setOpenKey] = useState<"cal" | "steps" | "burn" | null>(null);
 
   const [stepsToday, setStepsToday] = useState(0);
   const [stepsLoading, setStepsLoading] = useState(false);

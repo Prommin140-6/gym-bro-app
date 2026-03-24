@@ -17,6 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { COLORS } from "../../theme/colors";
 import type { ActivityKey } from "../../utils/met";
 import { useExerciseCatalog } from "../../services/exerciseCatalog";
+import { useUserProfile } from "../../hooks/useUserProfile";
 
 import { useAuth } from "../../services/AuthContext";
 import { ActivityAddModal } from "../../components/activity/ActivityAddModal";
@@ -48,7 +49,8 @@ export default function ExercisePostureScreen() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
-  const weightKg = 66;
+  const { profile } = useUserProfile(uid);
+  const weightKg = (profile?.weightKg || profile?.weight_kg || 66);
 
   const [query, setQuery] = useState("");
 

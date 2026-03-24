@@ -21,6 +21,7 @@ import type { ActivityKey } from "../../utils/met";
 import { ACTIVITY_LABEL } from "../../utils/met";
 
 import { useAuth } from "../../services/AuthContext";
+import { useUserProfile } from "../../hooks/useUserProfile";
 import { ActivityAddModal } from "../../components/activity/ActivityAddModal";
 import { useExerciseCatalog, useExercisesForActivityKey } from "../../services/exerciseCatalog";
 import type { ExerciseCatalogDoc } from "../../services/exerciseCatalog";
@@ -79,7 +80,9 @@ export default function ExerciseCollectionScreen({ route }: Props) {
 
   const { user } = useAuth();
   const uid = user?.uid ?? null;
-  const weightKg = 66;
+
+  const { profile } = useUserProfile(uid);
+  const weightKg = (profile?.weightKg || profile?.weight_kg || 66);
 
   const { loading } = useExerciseCatalog();
 

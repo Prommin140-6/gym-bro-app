@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, ScrollView, Image } from "react-native";
+import { View, Text, Pressable, ScrollView, Image, FlatList } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RegisterWizardParamList } from "../../navigation/RegisterWizardStack";
 
@@ -32,6 +32,11 @@ export default function Step3BodyFat({ navigation }: Props) {
   const { draft, setDraft } = useOnboarding();
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ Add spacer if odd number of items to keep [40%+] on left side
+  const optionsWithSpacer = OPTIONS.length % 2 === 1 
+    ? [...OPTIONS, { key: "spacer", label: "", value: null, image: null, isSpacer: true } as any]
+    : OPTIONS;
+
   const onNext = () => {
     if (draft.bodyFatPercent == null) {
       setError("Please select one option");
@@ -63,8 +68,17 @@ export default function Step3BodyFat({ navigation }: Props) {
           </View>
 
           <Card style={{ gap: 12 }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-              {OPTIONS.map((o) => {
+            <FlatList
+              scrollEnabled={false}
+              data={optionsWithSpacer}
+              numColumns={2}
+              columnWrapperStyle={{ gap: 12, justifyContent: "flex-start" }}
+              renderItem={({ item: o }) => {
+                // ✅ Render empty spacer if this is the spacer item
+                if ((o as any).isSpacer) {
+                  return <View style={{ flex: 1 }} />;
+                }
+
                 const selected = draft.bodyFatPercent === o.value;
 
                 return (
@@ -72,7 +86,7 @@ export default function Step3BodyFat({ navigation }: Props) {
                     key={o.key}
                     onPress={() => setDraft((d) => ({ ...d, bodyFatPercent: o.value }))}
                     style={{
-                      width: "48%",
+                      flex: 1,
                       borderWidth: 2,
                       borderColor: selected ? COLORS.primary : COLORS.border, // ✅ กรอบ primary ตอนเลือก
                       backgroundColor: COLORS.surface2,
@@ -98,8 +112,9 @@ export default function Step3BodyFat({ navigation }: Props) {
                     </Text>
                   </Pressable>
                 );
-              })}
-            </View>
+              }}
+              keyExtractor={(item) => item.key}
+            />
 
             {error ? (
               <Text style={{ color: COLORS.danger, fontWeight: "800" }}>{error}</Text>

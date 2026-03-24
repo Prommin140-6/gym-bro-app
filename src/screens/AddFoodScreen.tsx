@@ -222,7 +222,7 @@ export default function AddFoodScreen({ navigation }: any) {
             }}
           >
             <Pressable
-              onPress={() => {}}
+              onPress={() => { }}
               style={{
                 backgroundColor: COLORS.surface,
                 borderRadius: RADIUS.lg,
